@@ -52,4 +52,3 @@ npm run build
 - Vite 6
 - localStorage 持久化
 - 纯 CSS（无依赖）
-# study-tracker
