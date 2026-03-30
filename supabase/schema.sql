@@ -10,6 +10,7 @@ create table if not exists problems (
   difficulty text not null default 'medium',
   confidence integer not null default 3,
   notes text default '',
+  url text default '',
   added_at date not null default current_date,
   last_review date not null default current_date,
   next_review date not null default current_date,
