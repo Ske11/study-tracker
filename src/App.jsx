@@ -6,43 +6,44 @@ import {
   Plus, Bell, LayoutGrid, List, Pencil, Flame, Clock,
   ChevronRight, ChevronDown, X, Trash2, Save, Sparkles, Target, Trophy, Percent,
   FileText, GitBranch, CalendarDays, ArrowRight, ArrowUp, ArrowDown, Minus,
-  Code, Zap, Eye, TrendingUp, CircleDot,
+  Code, Zap, Eye, TrendingUp, CircleDot, Check, AlertTriangle, ArrowUpDown,
 } from "lucide-react";
+import { db } from "./db.js";
 
 /* ═══════════════════════ 数据定义 ═══════════════════════ */
 
 const PATTERNS = [
-  { id: "two-pointers",   label: "双指针",       Icon: ArrowLeftRight,    color: "#C97B7B" },
-  { id: "sliding-window", label: "滑动窗口",     Icon: SlidersHorizontal, color: "#C4809B" },
-  { id: "binary-search",  label: "二分查找",     Icon: Search,            color: "#A68BB8" },
-  { id: "bfs-dfs",        label: "广度/深度优先", Icon: GitFork,          color: "#8E86B5" },
-  { id: "dp",             label: "动态规划",     Icon: Layers,            color: "#7E94BA" },
-  { id: "greedy",         label: "贪心算法",     Icon: Diamond,           color: "#74A8A8" },
-  { id: "stack-queue",    label: "栈与队列",     Icon: AlignJustify,      color: "#72B494" },
-  { id: "hash",           label: "哈希表",       Icon: Hash,              color: "#82B882" },
-  { id: "tree",           label: "树",           Icon: TreePine,          color: "#9AB874" },
-  { id: "graph",          label: "图",           Icon: Share2,            color: "#BBA872" },
-  { id: "linked-list",    label: "链表",         Icon: Link,              color: "#BD9572" },
-  { id: "backtrack",      label: "回溯",         Icon: RotateCcw,         color: "#BD8282" },
-  { id: "monotonic-stack", label: "单调栈",      Icon: BarChart3,         color: "#B07E9A" },
-  { id: "union-find",     label: "并查集",       Icon: Network,           color: "#8D82B5" },
-  { id: "trie",           label: "字典树",       Icon: BookOpen,          color: "#7D90BE" },
-  { id: "bit",            label: "位运算",       Icon: Binary,            color: "#74A894" },
-  { id: "other",          label: "其他",         Icon: MoreHorizontal,    color: "#9AA0A8" },
+  { id: "two-pointers",   label: "双指针",       Icon: ArrowLeftRight,    color: "#DC5656" },
+  { id: "sliding-window", label: "滑动窗口",     Icon: SlidersHorizontal, color: "#D9566E" },
+  { id: "binary-search",  label: "二分查找",     Icon: Search,            color: "#8B6FD6" },
+  { id: "bfs-dfs",        label: "广度/深度优先", Icon: GitFork,          color: "#6A70D6" },
+  { id: "dp",             label: "动态规划",     Icon: Layers,            color: "#5558CC" },
+  { id: "greedy",         label: "贪心算法",     Icon: Diamond,           color: "#1EA896" },
+  { id: "stack-queue",    label: "栈与队列",     Icon: AlignJustify,      color: "#22A97A" },
+  { id: "hash",           label: "哈希表",       Icon: Hash,              color: "#36B065" },
+  { id: "tree",           label: "树",           Icon: TreePine,          color: "#7DA828" },
+  { id: "graph",          label: "图",           Icon: Share2,            color: "#D4A017" },
+  { id: "linked-list",    label: "链表",         Icon: Link,              color: "#D97A2B" },
+  { id: "backtrack",      label: "回溯",         Icon: RotateCcw,         color: "#DC5656" },
+  { id: "monotonic-stack", label: "单调栈",      Icon: BarChart3,         color: "#C25CD6" },
+  { id: "union-find",     label: "并查集",       Icon: Network,           color: "#6A70D6" },
+  { id: "trie",           label: "字典树",       Icon: BookOpen,          color: "#4A8FD6" },
+  { id: "bit",            label: "位运算",       Icon: Binary,            color: "#1EA896" },
+  { id: "other",          label: "其他",         Icon: MoreHorizontal,    color: "#7C8898" },
 ];
 
 const DIFFICULTY = [
-  { id: "easy", label: "简单", color: "#82B882" },
-  { id: "medium", label: "中等", color: "#BBA872" },
-  { id: "hard", label: "困难", color: "#BD8282" },
+  { id: "easy", label: "简单", color: "#22A97A" },
+  { id: "medium", label: "中等", color: "#D4A017" },
+  { id: "hard", label: "困难", color: "#DC5656" },
 ];
 
 const CONFIDENCE = [
-  { id: 1, label: "完全不会",     emoji: "😵", next: 1,  color: "#BD8282" },
-  { id: 2, label: "看提示才会",   emoji: "🤔", next: 2,  color: "#BD9572" },
-  { id: 3, label: "磕磕绊绊写出", emoji: "😅", next: 4,  color: "#BBA872" },
-  { id: 4, label: "比较顺利",     emoji: "😊", next: 7,  color: "#82B882" },
-  { id: 5, label: "轻松秒杀",     emoji: "🔥", next: 14, color: "#74A8A8" },
+  { id: 1, label: "完全不会",     emoji: "😵", next: 1,  color: "#DC5656" },
+  { id: 2, label: "看提示才会",   emoji: "🤔", next: 2,  color: "#D97A2B" },
+  { id: 3, label: "磕磕绊绊写出", emoji: "😅", next: 4,  color: "#D4A017" },
+  { id: 4, label: "比较顺利",     emoji: "😊", next: 7,  color: "#22A97A" },
+  { id: 5, label: "轻松秒杀",     emoji: "🔥", next: 14, color: "#1EA896" },
 ];
 
 /* ═══════ 模式速查手册数据 ═══════ */
@@ -301,23 +302,10 @@ n ^ n === 0 // 异或自身为0`,
 
 /* ═══════════════════════ 工具函数 ═══════════════════════ */
 
-const SK = "lc-tracker-v3";
 const getToday = () => new Date().toISOString().slice(0, 10);
 const daysDiff = (a, b) => { const x = new Date(a), y = new Date(b); x.setHours(0,0,0,0); y.setHours(0,0,0,0); return Math.round((x - y) / 864e5); };
 const fmtDate = (iso) => { const d = new Date(iso); return `${d.getMonth()+1}月${d.getDate()}日`; };
 const fmtWeekday = (iso) => ["日","一","二","三","四","五","六"][new Date(iso).getDay()];
-
-const db = {
-  async load() {
-    if (window.storage?.get) { try { const r = await window.storage.get(SK); return r?.value ? JSON.parse(r.value) : []; } catch {} }
-    try { return JSON.parse(localStorage.getItem(SK)) || []; } catch { return []; }
-  },
-  async save(data) {
-    const j = JSON.stringify(data);
-    if (window.storage?.set) { try { await window.storage.set(SK, j); } catch {} }
-    try { localStorage.setItem(SK, j); } catch {}
-  },
-};
 
 function cl(min, max) { return `clamp(${min}px, ${((min + max) / 2 / 16 * 100 / 6).toFixed(1)}vw, ${max}px)`; }
 
@@ -327,24 +315,24 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #F7F5F2; --bg2: #EFECEA; --sf: #FFFFFF; --sf2: #FAFAF8; --sf3: #F2F0ED;
-  --bd: rgba(0,0,0,.07); --bd2: rgba(0,0,0,.12);
-  --tx: #3A3A3A; --txd: #787878; --txm: #A8A8A8;
-  --ac: #7E94BA; --ac2: #9A8BB5;
-  --green: #82B882; --orange: #BBA872; --red: #BD8282;
+  --bg: #FAFBFE; --bg2: #F0F2F8; --sf: #FFFFFF; --sf2: #F6F7FB; --sf3: #EEF0F6;
+  --bd: rgba(0,0,0,.10); --bd2: rgba(0,0,0,.18);
+  --tx: #2D3142; --txd: #525A78; --txm: #7880A0;
+  --ac: #6366F1; --ac2: #8B5CF6;
+  --green: #22A97A; --orange: #D4A017; --red: #DC5656;
   --R: 16px; --Rs: 12px; --Rxs: 8px;
-  --shadow: 0 1px 3px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.03);
-  --shadow-up: 0 2px 12px rgba(0,0,0,.06);
+  --shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
+  --shadow-up: 0 4px 20px rgba(0,0,0,.12);
   --mono: 'JetBrains Mono', monospace; --sans: 'Noto Sans SC', system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root {
-  --bg: #1C1C1E; --bg2: #232325; --sf: #2C2C2E; --sf2: #323234; --sf3: #3A3A3C;
-  --bd: rgba(255,255,255,.07); --bd2: rgba(255,255,255,.12);
-  --tx: #E5E5E5; --txd: #9A9A9A; --txm: #6A6A6A;
-  --ac: #8DA4C4; --ac2: #A99BD0;
-  --green: #8DC98D; --orange: #C4B07A; --red: #C98D8D;
-  --shadow: 0 1px 3px rgba(0,0,0,.2), 0 2px 8px rgba(0,0,0,.15);
-  --shadow-up: 0 2px 12px rgba(0,0,0,.25);
+  --bg: #0F1117; --bg2: #1A1C28; --sf: #1E2030; --sf2: #252738; --sf3: #2E3046;
+  --bd: rgba(255,255,255,.12); --bd2: rgba(255,255,255,.20);
+  --tx: #E8EAF6; --txd: #8B95B8; --txm: #5D6580;
+  --ac: #818CF8; --ac2: #A78BFA;
+  --green: #5AD6A0; --orange: #E8B84A; --red: #E87070;
+  --shadow: 0 1px 4px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.25);
+  --shadow-up: 0 4px 20px rgba(0,0,0,.40);
 }}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
@@ -355,7 +343,8 @@ input, textarea, button { font-family: inherit; }
 ::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 3px; }
 
 .shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
-.hdr { position: sticky; top: 0; z-index: 100; background: var(--sf); border-bottom: 1px solid var(--bd); box-shadow: var(--shadow); }
+.hdr { position: sticky; top: 0; z-index: 100; background: var(--sf); border-bottom: 1px solid var(--bd); box-shadow: var(--shadow); backdrop-filter: blur(12px); background: rgba(255,255,255,.85); }
+@media (prefers-color-scheme: dark) { .hdr { background: rgba(30,32,48,.85); } }
 .hdr-in { max-width: 860px; margin: 0 auto; width: 100%; padding: ${cl(12,18)} ${cl(16,28)}; }
 .cnt { flex: 1; max-width: 860px; margin: 0 auto; width: 100%; padding: ${cl(14,22)} ${cl(16,28)} 80px; }
 .sg { display: grid; grid-template-columns: repeat(4,1fr); gap: ${cl(8,12)}; margin-bottom: ${cl(14,20)}; }
@@ -365,8 +354,8 @@ input, textarea, button { font-family: inherit; }
 .card:hover { border-color: var(--bd2); box-shadow: var(--shadow-up); }
 .btn { border: none; border-radius: var(--Rs); cursor: pointer; font-weight: 600; font-size: 13px; padding: ${cl(7,9)} ${cl(12,18)}; transition: all .2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
 .btn:active { transform: scale(.97); }
-.btn-pri { background: var(--ac); color: #fff; }
-.btn-pri:hover { filter: brightness(1.08); }
+.btn-pri { background: linear-gradient(135deg, var(--ac), var(--ac2)); color: #fff; }
+.btn-pri:hover { filter: brightness(1.1); box-shadow: 0 4px 14px rgba(99,102,241,.25); }
 .btn-soft { background: var(--sf2); color: var(--txd); border: 1px solid var(--bd); }
 .btn-soft:hover { background: var(--sf3); color: var(--tx); border-color: var(--bd2); }
 .btn-red { background: var(--red); color: #fff; }
@@ -399,6 +388,20 @@ input, textarea, button { font-family: inherit; }
 
 /* 代码块 */
 .code-block { font-family: var(--mono); font-size: 12px; line-height: 1.6; padding: 14px 16px; background: var(--bg); border: 1px solid var(--bd); border-radius: var(--Rs); overflow-x: auto; white-space: pre; color: var(--tx); }
+
+/* Toast */
+.toast-wrap { position: fixed; top: 16px; right: 16px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--Rs); background: var(--sf); border: 1px solid var(--bd); box-shadow: var(--shadow-up); font-size: 13px; font-weight: 500; animation: toast-in .3s ease-out both; max-width: 320px; }
+.toast-ok { border-left: 3px solid var(--green); }
+.toast-err { border-left: 3px solid var(--red); }
+@keyframes toast-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+/* 搜索和排序栏 */
+.search-bar { position: relative; }
+.search-bar input { padding-left: 34px; }
+.search-bar svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--txm); pointer-events: none; }
+.sort-sel { appearance: none; padding: 7px 28px 7px 10px; border-radius: var(--Rs); border: 1px solid var(--bd); background: var(--sf2); color: var(--txd); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237880A0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+.sort-sel:focus { outline: none; border-color: var(--ac); }
 `;
 
 /* ═══════════════════════ 主应用 ═══════════════════════ */
@@ -409,9 +412,23 @@ export default function App() {
   const [view, setView] = useState("dashboard");
   const [modal, setModal] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("nextReview");
+  const [toasts, setToasts] = useState([]);
 
-  useEffect(() => { db.load().then(d => { setItems(d); setLoaded(true); }); }, []);
-  useEffect(() => { if (loaded) db.save(items); }, [items, loaded]);
+  const toast = useCallback((msg, ok = true) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, msg, ok }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+  }, []);
+
+  useEffect(() => {
+    db.load().then(d => { setItems(d); setLoaded(true); }).catch(() => { toast("数据加载失败，使用本地缓存", false); setLoaded(true); });
+  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    db.save(items).catch(() => toast("云端保存失败，已保存到本地", false));
+  }, [items, loaded]);
 
   const t = getToday();
   const due = useMemo(() => items.filter(p => p.nextReview <= t), [items, t]);
@@ -427,18 +444,31 @@ export default function App() {
     const nd = new Date(); nd.setDate(nd.getDate() + (CONFIDENCE.find(c => c.id === data.confidence)?.next || 1));
     setItems(prev => [{ id: Date.now().toString(), ...data, addedAt: t, lastReview: t, nextReview: nd.toISOString().slice(0, 10), reviewCount: 1, history: [{ date: t, confidence: data.confidence }] }, ...prev]);
     setModal(null);
+    toast("题目已添加");
   }
 
   function reviewItem(pid, confidence) {
     const nd = new Date(); nd.setDate(nd.getDate() + (CONFIDENCE.find(c => c.id === confidence)?.next || 1));
     setItems(prev => prev.map(p => p.id === pid ? { ...p, confidence, lastReview: t, nextReview: nd.toISOString().slice(0, 10), reviewCount: p.reviewCount + 1, history: [...p.history, { date: t, confidence }] } : p));
     setModal(null);
+    toast("复习已记录");
   }
 
   const filtered = useMemo(() => {
-    const base = filter === "all" ? items : items.filter(p => p.pattern === filter);
-    return [...base].sort((a, b) => a.nextReview.localeCompare(b.nextReview));
-  }, [items, filter]);
+    let base = filter === "all" ? items : items.filter(p => p.pattern === filter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      base = base.filter(p => (p.title || "").toLowerCase().includes(q) || (p.number || "").includes(q));
+    }
+    const sorters = {
+      nextReview: (a, b) => a.nextReview.localeCompare(b.nextReview),
+      addedAt: (a, b) => b.addedAt.localeCompare(a.addedAt),
+      difficulty: (a, b) => { const o = { easy: 0, medium: 1, hard: 2 }; return (o[a.difficulty] ?? 1) - (o[b.difficulty] ?? 1); },
+      confidence: (a, b) => a.confidence - b.confidence,
+      number: (a, b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0),
+    };
+    return [...base].sort(sorters[sortBy] || sorters.nextReview);
+  }, [items, filter, search, sortBy]);
 
   if (!loaded) return (<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}><style>{CSS}</style><p style={{ color: "var(--txm)" }}>加载中…</p></div>);
 
@@ -483,19 +513,27 @@ export default function App() {
       <div className="cnt">
         {view === "dashboard" && <DashboardView items={items} due={due} mast={mast} patStats={patStats} setView={setView} />}
         {view === "due" && <DueView due={due} setModal={setModal} />}
-        {view === "all" && <AllView items={items} filtered={filtered} filter={filter} setFilter={setFilter} patStats={patStats} setModal={setModal} />}
+        {view === "all" && <AllView items={items} filtered={filtered} filter={filter} setFilter={setFilter} patStats={patStats} setModal={setModal} search={search} setSearch={setSearch} sortBy={sortBy} setSortBy={setSortBy} />}
         {view === "cheatsheet" && <CheatSheetView />}
         {view === "graph" && <GraphView items={items} />}
         {view === "report" && <ReportView items={items} />}
       </div>
     </div>
 
-    {modal?.type === "add" && <AddM close={() => setModal(null)} add={addItem} />}
+    {modal?.type === "add" && <AddM close={() => setModal(null)} add={addItem} items={items} />}
     {modal?.type === "review" && <RevM p={modal.data} close={() => setModal(null)} rev={c => reviewItem(modal.data.id, c)} />}
     {modal?.type === "edit" && <EditM p={modal.data} close={() => setModal(null)}
-      save={d => { setItems(prev => prev.map(p => p.id === modal.data.id ? { ...p, ...d } : p)); setModal(null); }}
-      del={() => { setItems(prev => prev.filter(p => p.id !== modal.data.id)); setModal(null); }}
+      save={d => { setItems(prev => prev.map(p => p.id === modal.data.id ? { ...p, ...d } : p)); setModal(null); toast("已保存"); }}
+      del={() => { setItems(prev => prev.filter(p => p.id !== modal.data.id)); setModal(null); toast("已删除"); }}
     />}
+    <div className="toast-wrap">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.ok ? "toast-ok" : "toast-err"}`}>
+          {t.ok ? <Check size={14} color="var(--green)" /> : <AlertTriangle size={14} color="var(--red)" />}
+          {t.msg}
+        </div>
+      ))}
+    </div>
   </>);
 }
 
@@ -562,8 +600,21 @@ function DueView({ due, setModal }) {
   </div>);
 }
 
-function AllView({ items, filtered, filter, setFilter, patStats, setModal }) {
+function AllView({ items, filtered, filter, setFilter, patStats, setModal, search, setSearch, sortBy, setSortBy }) {
   return (<div className="fu">
+    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="search-bar" style={{ flex: 1, minWidth: 160 }}>
+        <Search size={14} />
+        <input className="ipt" style={{ paddingLeft: 34 }} placeholder="搜索题号或题目名称…" value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+      <select className="sort-sel" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+        <option value="nextReview">按复习日期</option>
+        <option value="addedAt">按添加时间</option>
+        <option value="number">按题号</option>
+        <option value="difficulty">按难度</option>
+        <option value="confidence">按掌握度</option>
+      </select>
+    </div>
     <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
       <button className={`tag tag-btn ${filter === "all" ? "tag-on" : ""}`} style={filter === "all" ? { background: "var(--ac)" } : {}} onClick={() => setFilter("all")}>全部 ({items.length})</button>
       {patStats.map(p => (
@@ -572,7 +623,7 @@ function AllView({ items, filtered, filter, setFilter, patStats, setModal }) {
         </button>
       ))}
     </div>
-    {filtered.length === 0 ? <Empty text="没有题目" /> : (
+    {filtered.length === 0 ? <Empty text={search ? "没有匹配的题目" : "没有题目"} /> : (
       <div style={{ display: "grid", gap: cl(8, 12) }}>
         {filtered.map((p, i) => <div key={p.id} className="fu" style={{ animationDelay: `${i * 30}ms` }}><QCard p={p} onR={() => setModal({ type: "review", data: p })} onE={() => setModal({ type: "edit", data: p })} sd /></div>)}
       </div>
@@ -1006,15 +1057,24 @@ function Mdl({ children, close, title }) {
   </div>);
 }
 
-function AddM({ close, add }) {
+function AddM({ close, add, items }) {
   const [f, sF] = useState({ number: "", title: "", pattern: "", difficulty: "medium", confidence: 3, notes: "" });
-  const u = (k, v) => sF(p => ({ ...p, [k]: v }));
+  const [err, setErr] = useState("");
+  const u = (k, v) => { sF(p => ({ ...p, [k]: v })); setErr(""); };
+  const submit = () => {
+    const num = f.number.trim();
+    const title = f.title.trim();
+    if (!title) { setErr("请输入题目名称"); return; }
+    if (num && items.some(p => p.number === num)) { setErr(`题号 #${num} 已存在`); return; }
+    add({ ...f, number: num, title, pattern: f.pattern || "other" });
+  };
   return (<Mdl title="添加题目" close={close}>
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: 10 }}>
         <FG label="题号"><input className="ipt" style={{ fontFamily: "var(--mono)" }} placeholder="1" value={f.number} onChange={e => u("number", e.target.value)} /></FG>
         <FG label="题目名称"><input className="ipt" placeholder="两数之和" value={f.title} onChange={e => u("title", e.target.value)} /></FG>
       </div>
+      {err && <div style={{ fontSize: 12, color: "var(--red)", fontWeight: 500, padding: "6px 10px", background: "var(--red)" + "10", borderRadius: "var(--Rxs)" }}>{err}</div>}
       <FG label="算法模式"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
         {PATTERNS.map(p => <button key={p.id} className={`tag tag-btn ${f.pattern === p.id ? "tag-on" : ""}`} style={f.pattern === p.id ? { background: p.color } : {}} onClick={() => u("pattern", p.id)}><p.Icon size={11} /> {p.label}</button>)}
       </div></FG>
@@ -1033,7 +1093,7 @@ function AddM({ close, add }) {
       <FG label="解题笔记（核心思路、易错点）"><textarea className="ipt" style={{ minHeight: 64, resize: "vertical" }} placeholder="例如：关键是用哈希表存差值…" value={f.notes} onChange={e => u("notes", e.target.value)} /></FG>
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
         <button className="btn btn-soft" onClick={close}>取消</button>
-        <button className="btn btn-pri" onClick={() => { if (!f.title && !f.number) return; add({ ...f, pattern: f.pattern || "other" }); }}><Plus size={14} /> 添加并追踪</button>
+        <button className="btn btn-pri" onClick={submit}><Plus size={14} /> 添加并追踪</button>
       </div>
     </div>
   </Mdl>);
