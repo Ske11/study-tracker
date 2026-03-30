@@ -7,6 +7,7 @@ import {
   ChevronRight, ChevronDown, X, Trash2, Save, Sparkles, Target, Trophy, Percent,
   FileText, GitBranch, CalendarDays, ArrowRight, ArrowUp, ArrowDown, Minus,
   Code, Zap, Eye, TrendingUp, CircleDot, Check, AlertTriangle, ArrowUpDown,
+  Download, Upload, FileUp,
 } from "lucide-react";
 import { db } from "./db.js";
 
@@ -309,6 +310,44 @@ const fmtWeekday = (iso) => ["日","一","二","三","四","五","六"][new Date
 
 function cl(min, max) { return `clamp(${min}px, ${((min + max) / 2 / 16 * 100 / 6).toFixed(1)}vw, ${max}px)`; }
 
+/* ═══════════════════════ 导入导出 ═══════════════════════ */
+
+function exportData(items) {
+  const data = JSON.stringify(items, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `leetcode-tracker-${getToday()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function validateImport(data) {
+  if (!Array.isArray(data)) return { ok: false, msg: "文件格式错误：应为数组" };
+  const errors = [];
+  const valid = [];
+  for (let i = 0; i < data.length; i++) {
+    const p = data[i];
+    if (!p.id || !p.title) { errors.push(`第 ${i + 1} 项缺少 id 或 title`); continue; }
+    valid.push({
+      id: String(p.id),
+      number: p.number || "",
+      title: p.title,
+      pattern: p.pattern || "other",
+      difficulty: p.difficulty || "medium",
+      confidence: p.confidence || 3,
+      notes: p.notes || "",
+      addedAt: p.addedAt || getToday(),
+      lastReview: p.lastReview || getToday(),
+      nextReview: p.nextReview || getToday(),
+      reviewCount: p.reviewCount || 1,
+      history: Array.isArray(p.history) ? p.history : [{ date: getToday(), confidence: p.confidence || 3 }],
+    });
+  }
+  return { ok: true, items: valid, errors };
+}
+
 /* ═══════════════════════ 样式 ═══════════════════════ */
 
 const CSS = `
@@ -400,8 +439,16 @@ input, textarea, button { font-family: inherit; }
 .search-bar { position: relative; }
 .search-bar input { padding-left: 34px; }
 .search-bar svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--txm); pointer-events: none; }
-.sort-sel { appearance: none; padding: 7px 28px 7px 10px; border-radius: var(--Rs); border: 1px solid var(--bd); background: var(--sf2); color: var(--txd); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237880A0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
-.sort-sel:focus { outline: none; border-color: var(--ac); }
+.sort-drop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 160px; background: var(--sf); border: 1px solid var(--bd); border-radius: var(--Rs); box-shadow: var(--shadow-up); padding: 4px; }
+.sort-drop-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: none; background: none; border-radius: var(--Rxs); color: var(--txd); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .15s; }
+.sort-drop-item:hover { background: var(--sf2); color: var(--tx); }
+.sort-drop-on { color: var(--ac) !important; background: rgba(99,102,241,.06); }
+.sort-drop-on:hover { background: rgba(99,102,241,.10); }
+
+/* 导入拖拽区 */
+.drop-zone { border: 2px dashed var(--bd2); border-radius: var(--R); padding: 32px 16px; text-align: center; cursor: pointer; transition: all .2s; background: var(--bg); }
+.drop-zone:hover { border-color: var(--ac); background: rgba(99,102,241,.04); }
+.import-mode .cb { text-align: left; padding: 12px 16px; }
 `;
 
 /* ═══════════════════════ 主应用 ═══════════════════════ */
@@ -415,6 +462,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("nextReview");
   const [toasts, setToasts] = useState([]);
+  const [showImport, setShowImport] = useState(false);
 
   const toast = useCallback((msg, ok = true) => {
     const id = Date.now();
@@ -470,6 +518,28 @@ export default function App() {
     return [...base].sort(sorters[sortBy] || sorters.nextReview);
   }, [items, filter, search, sortBy]);
 
+  function handleImport(validItems, mode) {
+    if (mode === "replace") {
+      setItems(validItems);
+      toast(`已导入 ${validItems.length} 道题`);
+    } else if (mode === "merge") {
+      setItems(prev => {
+        const map = new Map(prev.map(p => [p.id, p]));
+        validItems.forEach(p => map.set(p.id, p));
+        return [...map.values()];
+      });
+      toast(`已合并 ${validItems.length} 道题`);
+    } else {
+      setItems(prev => {
+        const existing = new Set(prev.map(p => p.id));
+        const newItems = validItems.filter(p => !existing.has(p.id));
+        toast(`已添加 ${newItems.length} 道新题`);
+        return [...prev, ...newItems];
+      });
+    }
+    setShowImport(false);
+  }
+
   if (!loaded) return (<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}><style>{CSS}</style><p style={{ color: "var(--txm)" }}>加载中…</p></div>);
 
   const TABS = [
@@ -496,7 +566,11 @@ export default function App() {
                 <p style={{ fontSize: 11, color: "var(--txm)", marginTop: 1 }}>间隔重复 · 模式归类 · 掌握度追踪</p>
               </div>
             </div>
-            <button className="btn btn-pri" onClick={() => setModal({ type: "add" })}><Plus size={15} /><span className="hx">添加题目</span></button>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button className="btn btn-soft btn-sm" onClick={() => exportData(items)} title="导出数据"><Download size={14} /></button>
+              <button className="btn btn-soft btn-sm" onClick={() => setShowImport(true)} title="导入数据"><Upload size={14} /></button>
+              <button className="btn btn-pri" onClick={() => setModal({ type: "add" })}><Plus size={15} /><span className="hx">添加题目</span></button>
+            </div>
           </div>
           <div className="tabs" style={{ overflowX: "auto" }}>
             {TABS.map(tb => (
@@ -534,6 +608,7 @@ export default function App() {
         </div>
       ))}
     </div>
+    {showImport && <ImportM close={() => setShowImport(false)} onImport={handleImport} />}
   </>);
 }
 
@@ -601,19 +676,40 @@ function DueView({ due, setModal }) {
 }
 
 function AllView({ items, filtered, filter, setFilter, patStats, setModal, search, setSearch, sortBy, setSortBy }) {
+  const [sortOpen, setSortOpen] = useState(false);
+  const SORT_OPTS = [
+    { id: "nextReview", label: "按复习日期", Icon: Clock },
+    { id: "addedAt", label: "按添加时间", Icon: CalendarDays },
+    { id: "number", label: "按题号", Icon: Hash },
+    { id: "difficulty", label: "按难度", Icon: Flame },
+    { id: "confidence", label: "按掌握度", Icon: Target },
+  ];
+  const curSort = SORT_OPTS.find(s => s.id === sortBy) || SORT_OPTS[0];
   return (<div className="fu">
     <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
       <div className="search-bar" style={{ flex: 1, minWidth: 160 }}>
         <Search size={14} />
         <input className="ipt" style={{ paddingLeft: 34 }} placeholder="搜索题号或题目名称…" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
-      <select className="sort-sel" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-        <option value="nextReview">按复习日期</option>
-        <option value="addedAt">按添加时间</option>
-        <option value="number">按题号</option>
-        <option value="difficulty">按难度</option>
-        <option value="confidence">按掌握度</option>
-      </select>
+      <div style={{ position: "relative" }}>
+        <button className="btn btn-soft" onClick={() => setSortOpen(v => !v)} style={{ gap: 5, fontSize: 12, padding: "0 14px", height: 41, borderRadius: "var(--Rs)" }}>
+          <ArrowUpDown size={13} />
+          <span className="hx">{curSort.label}</span>
+          <ChevronDown size={12} style={{ transition: "transform .2s", transform: sortOpen ? "rotate(180deg)" : "none", opacity: .5 }} />
+        </button>
+        {sortOpen && <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setSortOpen(false)} />
+          <div className="sort-drop fu">
+            {SORT_OPTS.map(s => (
+              <button key={s.id} className={`sort-drop-item ${sortBy === s.id ? "sort-drop-on" : ""}`} onClick={() => { setSortBy(s.id); setSortOpen(false); }}>
+                <s.Icon size={13} />
+                {s.label}
+                {sortBy === s.id && <Check size={13} style={{ marginLeft: "auto" }} />}
+              </button>
+            ))}
+          </div>
+        </>}
+      </div>
     </div>
     <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
       <button className={`tag tag-btn ${filter === "all" ? "tag-on" : ""}`} style={filter === "all" ? { background: "var(--ac)" } : {}} onClick={() => setFilter("all")}>全部 ({items.length})</button>
@@ -1157,6 +1253,85 @@ function EditM({ p, close, save, del }) {
         </div>
       </div>
     </div>
+  </Mdl>);
+}
+
+function ImportM({ close, onImport }) {
+  const [preview, setPreview] = useState(null);
+  const [mode, setMode] = useState("merge");
+  const [err, setErr] = useState("");
+  const fileRef = { current: null };
+
+  const handleFile = (file) => {
+    if (!file) return;
+    setErr("");
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const raw = JSON.parse(e.target.result);
+        const result = validateImport(raw);
+        if (!result.ok) { setErr(result.msg); return; }
+        setPreview(result);
+      } catch { setErr("无法解析 JSON 文件"); }
+    };
+    reader.readAsText(file);
+  };
+
+  const MODES = [
+    { id: "replace", label: "替换全部", desc: "清空现有数据，使用导入数据" },
+    { id: "merge", label: "智能合并", desc: "相同ID用导入版本覆盖，其余保留" },
+    { id: "addNew", label: "仅添加新题", desc: "保留现有数据，只添加ID不重复的题目" },
+  ];
+
+  return (<Mdl title="导入数据" close={close}>
+    {!preview ? (
+      <div style={{ display: "grid", gap: 16 }}>
+        <label className="drop-zone" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+          <FileUp size={28} color="var(--txm)" style={{ opacity: .5 }} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--tx)" }}>选择 JSON 文件</div>
+            <div style={{ fontSize: 12, color: "var(--txm)", marginTop: 4 }}>支持从本应用导出的 .json 文件</div>
+          </div>
+          <input type="file" accept=".json,application/json" style={{ display: "none" }} onChange={e => handleFile(e.target.files?.[0])} />
+        </label>
+        {err && <div style={{ fontSize: 12, color: "var(--red)", fontWeight: 500, padding: "6px 10px", background: "var(--red)" + "10", borderRadius: "var(--Rxs)" }}>{err}</div>}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button className="btn btn-soft" onClick={close}>取消</button>
+        </div>
+      </div>
+    ) : (
+      <div style={{ display: "grid", gap: 16 }}>
+        <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid var(--green)" }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>解析成功</div>
+          <div style={{ fontSize: 12, color: "var(--txd)", marginTop: 4 }}>
+            找到 <strong>{preview.items.length}</strong> 道有效题目
+            {preview.errors.length > 0 && <span style={{ color: "var(--orange)" }}> · {preview.errors.length} 项跳过</span>}
+          </div>
+        </div>
+
+        {preview.errors.length > 0 && (
+          <div style={{ fontSize: 12, color: "var(--orange)", padding: "8px 12px", background: "var(--orange)" + "10", borderRadius: "var(--Rxs)", maxHeight: 80, overflowY: "auto" }}>
+            {preview.errors.map((e, i) => <div key={i}>{e}</div>)}
+          </div>
+        )}
+
+        <FG label="导入模式">
+          <div className="import-mode" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {MODES.map(m => (
+              <button key={m.id} className={`cb ${mode === m.id ? "cb-on" : ""}`} style={{ textAlign: "left", padding: "12px 16px" }} onClick={() => setMode(m.id)}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{m.label}</div>
+                <div style={{ fontSize: 11, color: "var(--txd)", marginTop: 2 }}>{m.desc}</div>
+              </button>
+            ))}
+          </div>
+        </FG>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button className="btn btn-soft" onClick={() => { setPreview(null); setErr(""); }}>重新选择</button>
+          <button className="btn btn-pri" onClick={() => onImport(preview.items, mode)}><Download size={14} /> 确认导入</button>
+        </div>
+      </div>
+    )}
   </Mdl>);
 }
 
