@@ -7,31 +7,51 @@ import {
   ChevronRight, ChevronDown, X, Trash2, Save, Sparkles, Target, Trophy, Percent,
   FileText, GitBranch, CalendarDays, ArrowRight, ArrowUp, ArrowDown, Minus,
   Code, Zap, Eye, TrendingUp, CircleDot, Check, AlertTriangle, ArrowUpDown,
-  Download, Upload, FileUp,
+  Download, Upload, FileUp, ExternalLink, Settings, Palette,
+  Sun, Moon, Monitor,
 } from "lucide-react";
 import { db } from "./db.js";
 
 /* ═══════════════════════ 数据定义 ═══════════════════════ */
 
-const PATTERNS = [
-  { id: "two-pointers",   label: "双指针",       Icon: ArrowLeftRight,    color: "#DC5656" },
-  { id: "sliding-window", label: "滑动窗口",     Icon: SlidersHorizontal, color: "#D9566E" },
-  { id: "binary-search",  label: "二分查找",     Icon: Search,            color: "#8B6FD6" },
-  { id: "bfs-dfs",        label: "广度/深度优先", Icon: GitFork,          color: "#6A70D6" },
-  { id: "dp",             label: "动态规划",     Icon: Layers,            color: "#5558CC" },
-  { id: "greedy",         label: "贪心算法",     Icon: Diamond,           color: "#1EA896" },
-  { id: "stack-queue",    label: "栈与队列",     Icon: AlignJustify,      color: "#22A97A" },
-  { id: "hash",           label: "哈希表",       Icon: Hash,              color: "#36B065" },
-  { id: "tree",           label: "树",           Icon: TreePine,          color: "#7DA828" },
-  { id: "graph",          label: "图",           Icon: Share2,            color: "#D4A017" },
-  { id: "linked-list",    label: "链表",         Icon: Link,              color: "#D97A2B" },
-  { id: "backtrack",      label: "回溯",         Icon: RotateCcw,         color: "#DC5656" },
-  { id: "monotonic-stack", label: "单调栈",      Icon: BarChart3,         color: "#C25CD6" },
-  { id: "union-find",     label: "并查集",       Icon: Network,           color: "#6A70D6" },
-  { id: "trie",           label: "字典树",       Icon: BookOpen,          color: "#4A8FD6" },
-  { id: "bit",            label: "位运算",       Icon: Binary,            color: "#1EA896" },
-  { id: "other",          label: "其他",         Icon: MoreHorizontal,    color: "#7C8898" },
+const BUILTIN_ICON_MAP = {
+  "two-pointers": ArrowLeftRight, "sliding-window": SlidersHorizontal, "binary-search": Search,
+  "bfs-dfs": GitFork, "dp": Layers, "greedy": Diamond, "stack-queue": AlignJustify,
+  "hash": Hash, "tree": TreePine, "graph": Share2, "linked-list": Link, "backtrack": RotateCcw,
+  "monotonic-stack": BarChart3, "union-find": Network, "trie": BookOpen, "bit": Binary, "other": MoreHorizontal,
+};
+
+const DEFAULT_PATTERNS = [
+  { id: "two-pointers",   label: "双指针",       color: "#DC5656" },
+  { id: "sliding-window", label: "滑动窗口",     color: "#D9566E" },
+  { id: "binary-search",  label: "二分查找",     color: "#8B6FD6" },
+  { id: "bfs-dfs",        label: "广度/深度优先", color: "#6A70D6" },
+  { id: "dp",             label: "动态规划",     color: "#5558CC" },
+  { id: "greedy",         label: "贪心算法",     color: "#1EA896" },
+  { id: "stack-queue",    label: "栈与队列",     color: "#22A97A" },
+  { id: "hash",           label: "哈希表",       color: "#36B065" },
+  { id: "tree",           label: "树",           color: "#7DA828" },
+  { id: "graph",          label: "图",           color: "#D4A017" },
+  { id: "linked-list",    label: "链表",         color: "#D97A2B" },
+  { id: "backtrack",      label: "回溯",         color: "#DC5656" },
+  { id: "monotonic-stack", label: "单调栈",      color: "#C25CD6" },
+  { id: "union-find",     label: "并查集",       color: "#6A70D6" },
+  { id: "trie",           label: "字典树",       color: "#4A8FD6" },
+  { id: "bit",            label: "位运算",       color: "#1EA896" },
+  { id: "other",          label: "其他",         color: "#7C8898" },
 ];
+
+const PAT_COLORS = ["#DC5656","#D9566E","#8B6FD6","#6A70D6","#5558CC","#1EA896","#22A97A","#36B065","#7DA828","#D4A017","#D97A2B","#C25CD6","#4A8FD6","#7C8898","#E06690","#3A86FF"];
+
+function getPatIcon(pat) { return BUILTIN_ICON_MAP[pat.id] || Code; }
+function normPat(p) { return Array.isArray(p) ? p : (p ? [p] : ["other"]); }
+
+function loadCustomPatterns() {
+  try { const d = JSON.parse(localStorage.getItem("lc-patterns-v1")); return Array.isArray(d) ? d : null; } catch { return null; }
+}
+function saveCustomPatterns(pats) {
+  try { localStorage.setItem("lc-patterns-v1", JSON.stringify(pats)); } catch {}
+}
 
 const DIFFICULTY = [
   { id: "easy", label: "简单", color: "#22A97A" },
@@ -334,10 +354,11 @@ function validateImport(data) {
       id: String(p.id),
       number: p.number || "",
       title: p.title,
-      pattern: p.pattern || "other",
+      pattern: normPat(p.pattern),
       difficulty: p.difficulty || "medium",
       confidence: p.confidence || 3,
       notes: p.notes || "",
+      url: p.url || "",
       addedAt: p.addedAt || getToday(),
       lastReview: p.lastReview || getToday(),
       nextReview: p.nextReview || getToday(),
@@ -364,15 +385,15 @@ const CSS = `
   --shadow-up: 0 4px 20px rgba(0,0,0,.12);
   --mono: 'JetBrains Mono', monospace; --sans: 'Noto Sans SC', system-ui, sans-serif;
 }
-@media (prefers-color-scheme: dark) { :root {
+[data-theme="dark"] {
   --bg: #0F1117; --bg2: #1A1C28; --sf: #1E2030; --sf2: #252738; --sf3: #2E3046;
   --bd: rgba(255,255,255,.12); --bd2: rgba(255,255,255,.20);
-  --tx: #E8EAF6; --txd: #8B95B8; --txm: #5D6580;
+  --tx: #E8EAF6; --txd: #B0B8D4; --txm: #6B7394;
   --ac: #818CF8; --ac2: #A78BFA;
   --green: #5AD6A0; --orange: #E8B84A; --red: #E87070;
   --shadow: 0 1px 4px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.25);
   --shadow-up: 0 4px 20px rgba(0,0,0,.40);
-}}
+}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
 body { background: var(--bg); color: var(--tx); font-family: var(--sans); line-height: 1.55; overflow-x: hidden; }
@@ -382,8 +403,8 @@ input, textarea, button { font-family: inherit; }
 ::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 3px; }
 
 .shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
-.hdr { position: sticky; top: 0; z-index: 100; background: var(--sf); border-bottom: 1px solid var(--bd); box-shadow: var(--shadow); backdrop-filter: blur(12px); background: rgba(255,255,255,.85); }
-@media (prefers-color-scheme: dark) { .hdr { background: rgba(30,32,48,.85); } }
+.hdr { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,.85); border-bottom: 1px solid var(--bd); box-shadow: var(--shadow); backdrop-filter: blur(12px); }
+[data-theme="dark"] .hdr { background: rgba(30,32,48,.85); }
 .hdr-in { max-width: 860px; margin: 0 auto; width: 100%; padding: ${cl(12,18)} ${cl(16,28)}; }
 .cnt { flex: 1; max-width: 860px; margin: 0 auto; width: 100%; padding: ${cl(14,22)} ${cl(16,28)} 80px; }
 .sg { display: grid; grid-template-columns: repeat(4,1fr); gap: ${cl(8,12)}; margin-bottom: ${cl(14,20)}; }
@@ -399,7 +420,7 @@ input, textarea, button { font-family: inherit; }
 .btn-soft:hover { background: var(--sf3); color: var(--tx); border-color: var(--bd2); }
 .btn-red { background: var(--red); color: #fff; }
 .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: var(--Rxs); }
-.tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; background: var(--sf2); border: 1px solid var(--bd); white-space: nowrap; transition: all .15s; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; background: var(--sf2); border: 1px solid var(--bd); color: var(--txd); white-space: nowrap; transition: all .15s; }
 .tag-btn { cursor: pointer; }
 .tag-btn:hover { background: var(--sf3); border-color: var(--bd2); }
 .tag-on { color: #fff !important; border-color: transparent !important; }
@@ -409,13 +430,13 @@ input, textarea, button { font-family: inherit; }
 .tab-on { background: var(--ac) !important; color: #fff !important; }
 .badge { min-width: 18px; height: 18px; border-radius: 9px; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; }
 .tab-on .badge { background: rgba(255,255,255,.3); }
-.ipt { width: 100%; padding: 10px 14px; border-radius: var(--Rs); border: 1px solid var(--bd); background: var(--bg); color: var(--tx); font-size: 14px; transition: border-color .2s, box-shadow .2s; line-height: 1.5; }
+.ipt { width: 100%; padding: 10px 14px; border-radius: var(--Rs); border: 1px solid var(--bd); background: var(--sf2); color: var(--tx); font-size: 14px; transition: border-color .2s, box-shadow .2s; line-height: 1.5; }
 .ipt:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px rgba(126,148,186,.12); }
 .ipt::placeholder { color: var(--txm); }
 .cb { flex: 1; min-width: 0; padding: ${cl(8,12)} 4px; border-radius: var(--Rs); border: 2px solid var(--bd); background: var(--sf); cursor: pointer; transition: all .2s; text-align: center; }
 .cb:hover { border-color: var(--ac); }
 .cb-on { border-color: var(--ac); background: rgba(126,148,186,.08); }
-.pt { height: 5px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+.pt { height: 5px; background: var(--sf3); border-radius: 3px; overflow: hidden; }
 .pf { height: 100%; border-radius: 3px; transition: width .6s cubic-bezier(.22,1,.36,1); }
 .ov { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.3); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .md { background: var(--sf); border: 1px solid var(--bd); border-radius: var(--R); width: 100%; max-width: 520px; max-height: 88vh; max-height: 88dvh; overflow-y: auto; padding: ${cl(18,26)}; box-shadow: var(--shadow-up); }
@@ -426,7 +447,7 @@ input, textarea, button { font-family: inherit; }
 @media (max-width: 480px) { .hx { display: none !important; } }
 
 /* 代码块 */
-.code-block { font-family: var(--mono); font-size: 12px; line-height: 1.6; padding: 14px 16px; background: var(--bg); border: 1px solid var(--bd); border-radius: var(--Rs); overflow-x: auto; white-space: pre; color: var(--tx); }
+.code-block { font-family: var(--mono); font-size: 12px; line-height: 1.6; padding: 14px 16px; background: var(--sf2); border: 1px solid var(--bd); border-radius: var(--Rs); overflow-x: auto; white-space: pre; color: var(--tx); }
 
 /* Toast */
 .toast-wrap { position: fixed; top: 16px; right: 16px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
@@ -446,10 +467,42 @@ input, textarea, button { font-family: inherit; }
 .sort-drop-on:hover { background: rgba(99,102,241,.10); }
 
 /* 导入拖拽区 */
-.drop-zone { border: 2px dashed var(--bd2); border-radius: var(--R); padding: 32px 16px; text-align: center; cursor: pointer; transition: all .2s; background: var(--bg); }
+.drop-zone { border: 2px dashed var(--bd2); border-radius: var(--R); padding: 32px 16px; text-align: center; cursor: pointer; transition: all .2s; background: var(--sf2); }
 .drop-zone:hover { border-color: var(--ac); background: rgba(99,102,241,.04); }
 .import-mode .cb { text-align: left; padding: 12px 16px; }
 `;
+
+/* ═══════════════════════ 主题管理 ═══════════════════════ */
+
+const THEME_KEY = "lc-theme-v1";
+const THEME_OPTIONS = [
+  { id: "auto", label: "跟随系统", Icon: Monitor },
+  { id: "light", label: "浅色模式", Icon: Sun },
+  { id: "dark", label: "深色模式", Icon: Moon },
+];
+
+function getStoredTheme() {
+  try { return localStorage.getItem(THEME_KEY) || "auto"; } catch { return "auto"; }
+}
+
+function applyTheme(mode) {
+  const root = document.documentElement;
+  if (mode === "dark") {
+    root.setAttribute("data-theme", "dark");
+  } else if (mode === "light") {
+    root.removeAttribute("data-theme");
+  } else {
+    // auto — follow system
+    if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+      root.setAttribute("data-theme", "dark");
+    } else {
+      root.removeAttribute("data-theme");
+    }
+  }
+}
+
+// Apply theme immediately on load (before React hydrates) to prevent flash
+applyTheme(getStoredTheme());
 
 /* ═══════════════════════ 主应用 ═══════════════════════ */
 
@@ -463,6 +516,10 @@ export default function App() {
   const [sortBy, setSortBy] = useState("nextReview");
   const [toasts, setToasts] = useState([]);
   const [showImport, setShowImport] = useState(false);
+  const [patterns, setPatterns] = useState(() => loadCustomPatterns() || DEFAULT_PATTERNS);
+  const [patMgr, setPatMgr] = useState(false);
+  const [themeMode, setThemeMode] = useState(getStoredTheme);
+  const [themeDrop, setThemeDrop] = useState(false);
 
   const toast = useCallback((msg, ok = true) => {
     const id = Date.now();
@@ -477,16 +534,30 @@ export default function App() {
     if (!loaded) return;
     db.save(items).catch(() => toast("云端保存失败，已保存到本地", false));
   }, [items, loaded]);
+  useEffect(() => { saveCustomPatterns(patterns); }, [patterns]);
+
+  useEffect(() => {
+    applyTheme(themeMode);
+    try { localStorage.setItem(THEME_KEY, themeMode); } catch {}
+  }, [themeMode]);
+
+  useEffect(() => {
+    if (themeMode !== "auto") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => applyTheme("auto");
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [themeMode]);
 
   const t = getToday();
   const due = useMemo(() => items.filter(p => p.nextReview <= t), [items, t]);
   const mast = useMemo(() => items.filter(p => p.confidence >= 4).length, [items]);
   const patStats = useMemo(() =>
-    PATTERNS.map(pat => {
-      const arr = items.filter(p => p.pattern === pat.id);
+    patterns.map(pat => {
+      const arr = items.filter(p => normPat(p.pattern).includes(pat.id));
       return { ...pat, total: arr.length, mastered: arr.filter(p => p.confidence >= 4).length, due: arr.filter(p => p.nextReview <= t).length };
     }).filter(p => p.total > 0)
-  , [items, t]);
+  , [items, t, patterns]);
 
   function addItem(data) {
     const nd = new Date(); nd.setDate(nd.getDate() + (CONFIDENCE.find(c => c.id === data.confidence)?.next || 1));
@@ -503,7 +574,7 @@ export default function App() {
   }
 
   const filtered = useMemo(() => {
-    let base = filter === "all" ? items : items.filter(p => p.pattern === filter);
+    let base = filter === "all" ? items : items.filter(p => normPat(p.pattern).includes(filter));
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       base = base.filter(p => (p.title || "").toLowerCase().includes(q) || (p.number || "").includes(q));
@@ -567,8 +638,26 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <div style={{ position: "relative" }}>
+                <button className="btn btn-soft btn-sm" onClick={() => setThemeDrop(v => !v)} title="主题设置">
+                  {themeMode === "dark" ? <Moon size={14} /> : themeMode === "light" ? <Sun size={14} /> : <Monitor size={14} />}
+                </button>
+                {themeDrop && <>
+                  <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setThemeDrop(false)} />
+                  <div className="sort-drop fu" style={{ right: 0, left: "auto", minWidth: 140 }}>
+                    {THEME_OPTIONS.map(opt => (
+                      <button key={opt.id} className={`sort-drop-item ${themeMode === opt.id ? "sort-drop-on" : ""}`} onClick={() => { setThemeMode(opt.id); setThemeDrop(false); }}>
+                        <opt.Icon size={13} />
+                        {opt.label}
+                        {themeMode === opt.id && <Check size={13} style={{ marginLeft: "auto" }} />}
+                      </button>
+                    ))}
+                  </div>
+                </>}
+              </div>
               <button className="btn btn-soft btn-sm" onClick={() => exportData(items)} title="导出数据"><Download size={14} /></button>
               <button className="btn btn-soft btn-sm" onClick={() => setShowImport(true)} title="导入数据"><Upload size={14} /></button>
+              <button className="btn btn-soft btn-sm" onClick={() => setPatMgr(true)} title="管理算法模式"><Settings size={14} /></button>
               <button className="btn btn-pri" onClick={() => setModal({ type: "add" })}><Plus size={15} /><span className="hx">添加题目</span></button>
             </div>
           </div>
@@ -585,18 +674,18 @@ export default function App() {
       </header>
 
       <div className="cnt">
-        {view === "dashboard" && <DashboardView items={items} due={due} mast={mast} patStats={patStats} setView={setView} />}
-        {view === "due" && <DueView due={due} setModal={setModal} />}
-        {view === "all" && <AllView items={items} filtered={filtered} filter={filter} setFilter={setFilter} patStats={patStats} setModal={setModal} search={search} setSearch={setSearch} sortBy={sortBy} setSortBy={setSortBy} />}
-        {view === "cheatsheet" && <CheatSheetView />}
-        {view === "graph" && <GraphView items={items} />}
-        {view === "report" && <ReportView items={items} />}
+        {view === "dashboard" && <DashboardView items={items} due={due} mast={mast} patStats={patStats} setView={setView} patterns={patterns} />}
+        {view === "due" && <DueView due={due} setModal={setModal} patterns={patterns} />}
+        {view === "all" && <AllView items={items} filtered={filtered} filter={filter} setFilter={setFilter} patStats={patStats} setModal={setModal} search={search} setSearch={setSearch} sortBy={sortBy} setSortBy={setSortBy} patterns={patterns} />}
+        {view === "cheatsheet" && <CheatSheetView patterns={patterns} />}
+        {view === "graph" && <GraphView items={items} patterns={patterns} />}
+        {view === "report" && <ReportView items={items} patterns={patterns} />}
       </div>
     </div>
 
-    {modal?.type === "add" && <AddM close={() => setModal(null)} add={addItem} items={items} />}
-    {modal?.type === "review" && <RevM p={modal.data} close={() => setModal(null)} rev={c => reviewItem(modal.data.id, c)} />}
-    {modal?.type === "edit" && <EditM p={modal.data} close={() => setModal(null)}
+    {modal?.type === "add" && <AddM close={() => setModal(null)} add={addItem} items={items} patterns={patterns} />}
+    {modal?.type === "review" && <RevM p={modal.data} close={() => setModal(null)} rev={c => reviewItem(modal.data.id, c)} patterns={patterns} />}
+    {modal?.type === "edit" && <EditM p={modal.data} close={() => setModal(null)} patterns={patterns}
       save={d => { setItems(prev => prev.map(p => p.id === modal.data.id ? { ...p, ...d } : p)); setModal(null); toast("已保存"); }}
       del={() => { setItems(prev => prev.filter(p => p.id !== modal.data.id)); setModal(null); toast("已删除"); }}
     />}
@@ -609,12 +698,13 @@ export default function App() {
       ))}
     </div>
     {showImport && <ImportM close={() => setShowImport(false)} onImport={handleImport} />}
+    {patMgr && <PatMgr patterns={patterns} setPatterns={setPatterns} close={() => setPatMgr(false)} />}
   </>);
 }
 
 /* ═══════════════════════ 页面视图 ═══════════════════════ */
 
-function DashboardView({ items, due, mast, patStats, setView }) {
+function DashboardView({ items, due, mast, patStats, setView, patterns }) {
   return (<div className="fu">
     <div className="sg">
       {[
@@ -645,11 +735,11 @@ function DashboardView({ items, due, mast, patStats, setView }) {
     <Sec>模式掌握度</Sec>
     {patStats.length === 0 ? <Empty text="添加第一道题开始追踪吧" /> : (
       <div className="pg">
-        {patStats.map(p => (
+        {patStats.map(p => { const PI = getPatIcon(p); return (
           <div key={p.id} className="card" style={{ padding: "12px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 10, background: p.color + "18", color: p.color, display: "grid", placeItems: "center" }}><p.Icon size={15} /></div>
+                <div style={{ width: 30, height: 30, borderRadius: 10, background: p.color + "18", color: p.color, display: "grid", placeItems: "center" }}><PI size={15} /></div>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{p.label}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -659,23 +749,23 @@ function DashboardView({ items, due, mast, patStats, setView }) {
             </div>
             <div className="pt"><div className="pf" style={{ width: `${p.total > 0 ? (p.mastered / p.total * 100) : 0}%`, background: p.color }} /></div>
           </div>
-        ))}
+        ); })}
       </div>
     )}
   </div>);
 }
 
-function DueView({ due, setModal }) {
+function DueView({ due, setModal, patterns }) {
   return (<div className="fu">
     {due.length === 0 ? <Empty emoji="🎉" text="今天没有待复习的题目" sub="可以做新题，或等下次复习提醒" /> : (
       <div style={{ display: "grid", gap: cl(8, 12) }}>
-        {due.map((p, i) => <div key={p.id} className="fu" style={{ animationDelay: `${i * 40}ms` }}><QCard p={p} onR={() => setModal({ type: "review", data: p })} onE={() => setModal({ type: "edit", data: p })} /></div>)}
+        {due.map((p, i) => <div key={p.id} className="fu" style={{ animationDelay: `${i * 40}ms` }}><QCard p={p} onR={() => setModal({ type: "review", data: p })} onE={() => setModal({ type: "edit", data: p })} patterns={patterns} /></div>)}
       </div>
     )}
   </div>);
 }
 
-function AllView({ items, filtered, filter, setFilter, patStats, setModal, search, setSearch, sortBy, setSortBy }) {
+function AllView({ items, filtered, filter, setFilter, patStats, setModal, search, setSearch, sortBy, setSortBy, patterns }) {
   const [sortOpen, setSortOpen] = useState(false);
   const SORT_OPTS = [
     { id: "nextReview", label: "按复习日期", Icon: Clock },
@@ -713,15 +803,15 @@ function AllView({ items, filtered, filter, setFilter, patStats, setModal, searc
     </div>
     <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
       <button className={`tag tag-btn ${filter === "all" ? "tag-on" : ""}`} style={filter === "all" ? { background: "var(--ac)" } : {}} onClick={() => setFilter("all")}>全部 ({items.length})</button>
-      {patStats.map(p => (
+      {patStats.map(p => { const PI = getPatIcon(p); return (
         <button key={p.id} className={`tag tag-btn ${filter === p.id ? "tag-on" : ""}`} style={filter === p.id ? { background: p.color } : {}} onClick={() => setFilter(p.id)}>
-          <p.Icon size={10} /> {p.label} ({p.total})
+          <PI size={10} /> {p.label} ({p.total})
         </button>
-      ))}
+      ); })}
     </div>
     {filtered.length === 0 ? <Empty text={search ? "没有匹配的题目" : "没有题目"} /> : (
       <div style={{ display: "grid", gap: cl(8, 12) }}>
-        {filtered.map((p, i) => <div key={p.id} className="fu" style={{ animationDelay: `${i * 30}ms` }}><QCard p={p} onR={() => setModal({ type: "review", data: p })} onE={() => setModal({ type: "edit", data: p })} sd /></div>)}
+        {filtered.map((p, i) => <div key={p.id} className="fu" style={{ animationDelay: `${i * 30}ms` }}><QCard p={p} onR={() => setModal({ type: "review", data: p })} onE={() => setModal({ type: "edit", data: p })} sd patterns={patterns} /></div>)}
       </div>
     )}
   </div>);
@@ -729,7 +819,7 @@ function AllView({ items, filtered, filter, setFilter, patStats, setModal, searc
 
 /* ═══════════════════════ 模式速查手册 ═══════════════════════ */
 
-function CheatSheetView() {
+function CheatSheetView({ patterns }) {
   const [open, setOpen] = useState(null);
   return (<div className="fu">
     <div style={{ marginBottom: 16 }}>
@@ -740,9 +830,10 @@ function CheatSheetView() {
       <p style={{ fontSize: 12, color: "var(--txd)" }}>每种算法模式的信号词、代码模板和核心技巧，做题时快速查阅</p>
     </div>
     <div style={{ display: "grid", gap: 8 }}>
-      {PATTERNS.filter(p => CHEAT_SHEETS[p.id]).map(pat => {
+      {patterns.filter(p => CHEAT_SHEETS[p.id]).map(pat => {
         const cs = CHEAT_SHEETS[pat.id];
         const isOpen = open === pat.id;
+        const PatIcon = getPatIcon(pat);
         return (
           <div key={pat.id} className="card" style={{ overflow: "hidden" }}>
             <button onClick={() => setOpen(isOpen ? null : pat.id)} style={{
@@ -752,7 +843,7 @@ function CheatSheetView() {
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: pat.color + "18", color: pat.color, display: "grid", placeItems: "center" }}>
-                  <pat.Icon size={16} />
+                  <PatIcon size={16} />
                 </div>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{pat.label}</div>
@@ -786,8 +877,10 @@ function CheatSheetView() {
                     <SheetLabel icon={<GitBranch size={12} />}>关联模式</SheetLabel>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                       {cs.related.map(rid => {
-                        const rp = PATTERNS.find(x => x.id === rid);
-                        return rp ? <span key={rid} className="tag" style={{ color: rp.color, borderColor: rp.color + "33" }}><rp.Icon size={10} /> {rp.label}</span> : null;
+                        const rp = patterns.find(x => x.id === rid);
+                        if (!rp) return null;
+                        const RI = getPatIcon(rp);
+                        return <span key={rid} className="tag" style={{ color: rp.color, borderColor: rp.color + "33" }}><RI size={10} /> {rp.label}</span>;
                       })}
                     </div>
                   </div>
@@ -807,12 +900,14 @@ function SheetLabel({ icon, children }) {
 
 /* ═══════════════════════ 题目关联图谱 ═══════════════════════ */
 
-function GraphView({ items }) {
+function GraphView({ items, patterns }) {
   const groups = useMemo(() => {
     const map = {};
     items.forEach(item => {
-      if (!map[item.pattern]) map[item.pattern] = [];
-      map[item.pattern].push(item);
+      normPat(item.pattern).forEach(pid => {
+        if (!map[pid]) map[pid] = [];
+        map[pid].push(item);
+      });
     });
     return map;
   }, [items]);
@@ -835,7 +930,8 @@ function GraphView({ items }) {
     <div className="card" style={{ padding: 16, marginBottom: 16 }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
         {patternKeys.map(pid => {
-          const pat = PATTERNS.find(x => x.id === pid);
+          const pat = patterns.find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" };
+          const PatIcon = getPatIcon(pat);
           const cs = CHEAT_SHEETS[pid];
           const relatedInUse = (cs?.related || []).filter(r => groups[r]);
           return (
@@ -845,14 +941,14 @@ function GraphView({ items }) {
                 background: pat.color + "18", color: pat.color,
                 display: "grid", placeItems: "center", border: `2px solid ${pat.color}44`,
               }}>
-                <pat.Icon size={20} />
+                <PatIcon size={20} />
               </div>
               <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>{pat.label}</div>
               <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--txm)" }}>{groups[pid].length} 题</div>
               {relatedInUse.length > 0 && (
                 <div style={{ display: "flex", gap: 2, justifyContent: "center", marginTop: 4 }}>
                   {relatedInUse.map(r => {
-                    const rp = PATTERNS.find(x => x.id === r);
+                    const rp = patterns.find(x => x.id === r);
                     return <div key={r} style={{ width: 6, height: 6, borderRadius: 3, background: rp?.color || "var(--bd)" }} title={`关联: ${rp?.label}`} />;
                   })}
                 </div>
@@ -867,7 +963,8 @@ function GraphView({ items }) {
     <Sec>按模式分组</Sec>
     <div style={{ display: "grid", gap: 10 }}>
       {patternKeys.map(pid => {
-        const pat = PATTERNS.find(x => x.id === pid);
+        const pat = patterns.find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" };
+        const PatIcon = getPatIcon(pat);
         const cs = CHEAT_SHEETS[pid];
         const problemList = groups[pid].sort((a, b) => {
           const da = DIFFICULTY.findIndex(d => d.id === a.difficulty);
@@ -878,7 +975,7 @@ function GraphView({ items }) {
         return (
           <div key={pid} className="card" style={{ padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: pat.color + "18", color: pat.color, display: "grid", placeItems: "center" }}><pat.Icon size={14} /></div>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: pat.color + "18", color: pat.color, display: "grid", placeItems: "center" }}><PatIcon size={14} /></div>
               <span style={{ fontSize: 14, fontWeight: 600 }}>{pat.label}</span>
               <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--txm)" }}>{problemList.length} 题</span>
             </div>
@@ -887,7 +984,7 @@ function GraphView({ items }) {
                 const diff = DIFFICULTY.find(d => d.id === item.difficulty);
                 const conf = CONFIDENCE.find(c => c.id === item.confidence);
                 return (
-                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "var(--bg)", borderRadius: "var(--Rxs)" }}>
+                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "var(--sf2)", borderRadius: "var(--Rxs)" }}>
                     {item.number && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ac)", fontWeight: 600, minWidth: 32 }}>#{item.number}</span>}
                     <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{item.title || "无标题"}</span>
                     <span style={{ fontSize: 11, color: diff?.color }}>{diff?.label}</span>
@@ -903,8 +1000,10 @@ function GraphView({ items }) {
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
                 <span style={{ fontSize: 11, color: "var(--txm)", marginRight: 6 }}>关联模式：</span>
                 {relatedPats.map(r => {
-                  const rp = PATTERNS.find(x => x.id === r);
-                  return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4 }}><rp.Icon size={10} /> {rp.label}</span>;
+                  const rp = patterns.find(x => x.id === r);
+                  if (!rp) return null;
+                  const RI = getPatIcon(rp);
+                  return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4 }}><RI size={10} /> {rp.label}</span>;
                 })}
               </div>
             )}
@@ -917,7 +1016,7 @@ function GraphView({ items }) {
 
 /* ═══════════════════════ 每周复盘报告 ═══════════════════════ */
 
-function ReportView({ items }) {
+function ReportView({ items, patterns }) {
   const t = getToday();
   const todayDate = new Date(t);
   const dayOfWeek = todayDate.getDay();
@@ -973,21 +1072,22 @@ function ReportView({ items }) {
   // 模式分析
   const patternReviewCount = {};
   thisWeekReviews.forEach(r => {
-    const pid = r.item.pattern;
-    patternReviewCount[pid] = (patternReviewCount[pid] || 0) + 1;
+    normPat(r.item.pattern).forEach(pid => {
+      patternReviewCount[pid] = (patternReviewCount[pid] || 0) + 1;
+    });
   });
   const topPatterns = Object.entries(patternReviewCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   // 薄弱模式推荐
   const weakPatterns = useMemo(() => {
-    return PATTERNS.map(pat => {
-      const arr = items.filter(p => p.pattern === pat.id);
+    return patterns.map(pat => {
+      const arr = items.filter(p => normPat(p.pattern).includes(pat.id));
       if (arr.length === 0) return null;
       const avgConf = arr.reduce((s, p) => s + p.confidence, 0) / arr.length;
       const dueCount = arr.filter(p => p.nextReview <= t).length;
       return { ...pat, avgConf, total: arr.length, dueCount };
     }).filter(Boolean).sort((a, b) => a.avgConf - b.avgConf).slice(0, 3);
-  }, [items, t]);
+  }, [items, t, patterns]);
 
   const delta = (cur, prev) => {
     if (prev === 0) return cur > 0 ? { icon: ArrowUp, color: "var(--green)", text: `+${cur}` } : { icon: Minus, color: "var(--txm)", text: "持平" };
@@ -1035,7 +1135,7 @@ function ReportView({ items }) {
     {/* 每日活跃度 */}
     <Sec>每日活跃度</Sec>
     <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-      <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 80 }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 100 }}>
         {dailyActivity.map((d, i) => (
           <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
             <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: d.count > 0 ? "var(--tx)" : "var(--txm)" }}>{d.count || ""}</span>
@@ -1058,7 +1158,6 @@ function ReportView({ items }) {
       <Sec>本周进步的题</Sec>
       <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
         {improvedThisWeek.map(({ item, from, to }) => {
-          const pat = PATTERNS.find(x => x.id === item.pattern);
           const fromC = CONFIDENCE.find(c => c.id === from);
           const toC = CONFIDENCE.find(c => c.id === to);
           return (
@@ -1078,10 +1177,10 @@ function ReportView({ items }) {
     <Sec>下周重点攻克</Sec>
     {weakPatterns.length === 0 ? <Empty text="需要更多数据来生成推荐" /> : (
       <div style={{ display: "grid", gap: 8 }}>
-        {weakPatterns.map((wp, i) => (
+        {weakPatterns.map((wp, i) => { const WPI = getPatIcon(wp); return (
           <div key={wp.id} className="card" style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 32, height: 32, borderRadius: 10, background: wp.color + "18", color: wp.color, display: "grid", placeItems: "center", flexShrink: 0 }}>
-              <wp.Icon size={16} />
+              <WPI size={16} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600 }}>{wp.label}</div>
@@ -1096,7 +1195,7 @@ function ReportView({ items }) {
               {i + 1}
             </div>
           </div>
-        ))}
+        ); })}
       </div>
     )}
 
@@ -1106,8 +1205,8 @@ function ReportView({ items }) {
 
 /* ═══════════════════════ 题目卡片 ═══════════════════════ */
 
-function QCard({ p, onR, onE, sd }) {
-  const pat = PATTERNS.find(x => x.id === p.pattern);
+function QCard({ p, onR, onE, sd, patterns }) {
+  const pats = normPat(p.pattern).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" });
   const diff = DIFFICULTY.find(x => x.id === p.difficulty);
   const conf = CONFIDENCE.find(x => x.id === p.confidence);
   const t = getToday(), isDue = p.nextReview <= t, dd = daysDiff(p.nextReview, t);
@@ -1120,18 +1219,19 @@ function QCard({ p, onR, onE, sd }) {
             <span style={{ fontSize: 14, fontWeight: 600 }}>{p.title || "无标题"}</span>
           </div>
           <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {pat && <span className="tag" style={{ color: pat.color, borderColor: pat.color + "33" }}><pat.Icon size={11} /> {pat.label}</span>}
+            {pats.map(pt => { const PI = getPatIcon(pt); return <span key={pt.id} className="tag" style={{ color: pt.color, borderColor: pt.color + "33" }}><PI size={11} /> {pt.label}</span>; })}
             {diff && <span className="tag" style={{ color: diff.color, borderColor: diff.color + "33" }}>{diff.label}</span>}
             <span className="tag">{conf?.emoji} {conf?.label}</span>
             <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--txm)" }}>复习{p.reviewCount}次</span>
           </div>
         </div>
         <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+          {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" className="btn btn-soft btn-sm" style={{ textDecoration: "none" }} title="去做题"><ExternalLink size={12} /></a>}
           <button className="btn btn-soft btn-sm" onClick={onE}><Pencil size={12} /></button>
           {isDue ? <button className="btn btn-pri btn-sm" onClick={onR}><Flame size={12} /> 复习</button> : <button className="btn btn-soft btn-sm" onClick={onR}>提前复习</button>}
         </div>
       </div>
-      {p.notes && <div style={{ fontSize: 12, color: "var(--txd)", marginTop: 8, padding: "8px 12px", background: "var(--bg)", borderRadius: "var(--Rs)", lineHeight: 1.65, borderLeft: `2px solid ${pat?.color || "var(--bd)"}` }}>{p.notes}</div>}
+      {p.notes && <div style={{ fontSize: 12, color: "var(--txd)", marginTop: 8, padding: "8px 12px", background: "var(--sf2)", borderRadius: "var(--Rs)", lineHeight: 1.65, borderLeft: `2px solid ${pats[0]?.color || "var(--bd)"}` }}>{p.notes}</div>}
       {sd && <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--txm)", marginTop: 8 }}>
         {isDue ? <span style={{ color: "var(--orange)" }}>● 已到复习时间</span> : <span>○ {dd}天后复习 · {p.nextReview}</span>}
       </div>}
@@ -1153,16 +1253,23 @@ function Mdl({ children, close, title }) {
   </div>);
 }
 
-function AddM({ close, add, items }) {
-  const [f, sF] = useState({ number: "", title: "", pattern: "", difficulty: "medium", confidence: 3, notes: "" });
+function AddM({ close, add, items, patterns }) {
+  const [f, sF] = useState({ number: "", title: "", pattern: [], difficulty: "medium", confidence: 3, notes: "", url: "" });
   const [err, setErr] = useState("");
-  const u = (k, v) => { sF(p => ({ ...p, [k]: v })); setErr(""); };
+  const u = (k, v) => {
+    sF(p => {
+      const next = { ...p, [k]: v };
+      if (k === "number" && v.trim() && !p.url) next.url = `https://leetcode.cn/problems/`;
+      return next;
+    });
+    setErr("");
+  };
   const submit = () => {
     const num = f.number.trim();
     const title = f.title.trim();
     if (!title) { setErr("请输入题目名称"); return; }
     if (num && items.some(p => p.number === num)) { setErr(`题号 #${num} 已存在`); return; }
-    add({ ...f, number: num, title, pattern: f.pattern || "other" });
+    add({ ...f, number: num, title, pattern: f.pattern.length > 0 ? f.pattern : ["other"] });
   };
   return (<Mdl title="添加题目" close={close}>
     <div style={{ display: "grid", gap: 16 }}>
@@ -1170,9 +1277,10 @@ function AddM({ close, add, items }) {
         <FG label="题号"><input className="ipt" style={{ fontFamily: "var(--mono)" }} placeholder="1" value={f.number} onChange={e => u("number", e.target.value)} /></FG>
         <FG label="题目名称"><input className="ipt" placeholder="两数之和" value={f.title} onChange={e => u("title", e.target.value)} /></FG>
       </div>
+      <FG label="题目链接"><input className="ipt" placeholder="https://leetcode.cn/problems/two-sum" value={f.url} onChange={e => u("url", e.target.value)} /></FG>
       {err && <div style={{ fontSize: 12, color: "var(--red)", fontWeight: 500, padding: "6px 10px", background: "var(--red)" + "10", borderRadius: "var(--Rxs)" }}>{err}</div>}
       <FG label="算法模式"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-        {PATTERNS.map(p => <button key={p.id} className={`tag tag-btn ${f.pattern === p.id ? "tag-on" : ""}`} style={f.pattern === p.id ? { background: p.color } : {}} onClick={() => u("pattern", p.id)}><p.Icon size={11} /> {p.label}</button>)}
+        {patterns.map(p => { const PI = getPatIcon(p); return <button key={p.id} className={`tag tag-btn ${f.pattern.includes(p.id) ? "tag-on" : ""}`} style={f.pattern.includes(p.id) ? { background: p.color } : {}} onClick={() => u("pattern", f.pattern.includes(p.id) ? f.pattern.filter(x=>x!==p.id) : [...f.pattern, p.id])}><PI size={11} /> {p.label}</button>; })}
       </div></FG>
       <FG label="难度"><div style={{ display: "flex", gap: 8 }}>
         {DIFFICULTY.map(d => <button key={d.id} className={`tag tag-btn ${f.difficulty === d.id ? "tag-on" : ""}`} style={f.difficulty === d.id ? { background: d.color } : {}} onClick={() => u("difficulty", d.id)}>{d.label}</button>)}
@@ -1195,19 +1303,21 @@ function AddM({ close, add, items }) {
   </Mdl>);
 }
 
-function RevM({ p, close, rev }) {
-  const pat = PATTERNS.find(x => x.id === p.pattern); const diff = DIFFICULTY.find(x => x.id === p.difficulty);
+function RevM({ p, close, rev, patterns }) {
+  const pats = normPat(p.pattern).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" });
+  const diff = DIFFICULTY.find(x => x.id === p.difficulty);
   return (<Mdl title="复习评估" close={close}>
-    <div style={{ padding: cl(12, 16), background: "var(--bg)", borderRadius: "var(--Rs)", border: "1px solid var(--bd)", marginBottom: 16 }}>
+    <div style={{ padding: cl(12, 16), background: "var(--sf2)", borderRadius: "var(--Rs)", border: "1px solid var(--bd)", marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         {p.number && <span style={{ fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600, color: "var(--ac)" }}>#{p.number}</span>}
         <span style={{ fontSize: 15, fontWeight: 700 }}>{p.title}</span>
       </div>
       <div style={{ display: "flex", gap: 6 }}>
-        {pat && <span className="tag" style={{ color: pat.color, borderColor: pat.color + "33" }}><pat.Icon size={11} /> {pat.label}</span>}
+        {pats.map(pt => { const PI = getPatIcon(pt); return <span key={pt.id} className="tag" style={{ color: pt.color, borderColor: pt.color + "33" }}><PI size={11} /> {pt.label}</span>; })}
         {diff && <span className="tag" style={{ color: diff.color, borderColor: diff.color + "33" }}>{diff.label}</span>}
       </div>
-      {p.notes && <div style={{ fontSize: 12, color: "var(--txd)", marginTop: 10, padding: "8px 12px", background: "var(--sf)", borderRadius: "var(--Rxs)", lineHeight: 1.6, borderLeft: `2px solid ${pat?.color || "var(--bd)"}` }}>{p.notes}</div>}
+      {p.notes && <div style={{ fontSize: 12, color: "var(--txd)", marginTop: 10, padding: "8px 12px", background: "var(--sf)", borderRadius: "var(--Rxs)", lineHeight: 1.6, borderLeft: `2px solid ${pats[0]?.color || "var(--bd)"}` }}>{p.notes}</div>}
+      {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ac)", marginTop: 10, textDecoration: "none" }}><ExternalLink size={12} /> 去做题</a>}
     </div>
     <p style={{ fontSize: 13, color: "var(--txd)", marginBottom: 12, fontWeight: 500 }}>这道题做完后，你觉得掌握如何？</p>
     <div style={{ display: "flex", gap: 6 }}>
@@ -1234,8 +1344,8 @@ function RevM({ p, close, rev }) {
   </Mdl>);
 }
 
-function EditM({ p, close, save, del }) {
-  const [f, sF] = useState({ number: p.number || "", title: p.title || "", notes: p.notes || "" });
+function EditM({ p, close, save, del, patterns }) {
+  const [f, sF] = useState({ number: p.number || "", title: p.title || "", notes: p.notes || "", url: p.url || "", pattern: normPat(p.pattern) });
   const [cd, sCd] = useState(false);
   const u = (k, v) => sF(prev => ({ ...prev, [k]: v }));
   return (<Mdl title="编辑题目" close={close}>
@@ -1244,6 +1354,10 @@ function EditM({ p, close, save, del }) {
         <FG label="题号"><input className="ipt" style={{ fontFamily: "var(--mono)" }} value={f.number} onChange={e => u("number", e.target.value)} /></FG>
         <FG label="题目名称"><input className="ipt" value={f.title} onChange={e => u("title", e.target.value)} /></FG>
       </div>
+      <FG label="题目链接"><input className="ipt" placeholder="https://leetcode.cn/problems/two-sum" value={f.url} onChange={e => u("url", e.target.value)} /></FG>
+      <FG label="算法模式"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {patterns.map(pt => { const PI = getPatIcon(pt); return <button key={pt.id} className={`tag tag-btn ${f.pattern.includes(pt.id) ? "tag-on" : ""}`} style={f.pattern.includes(pt.id) ? { background: pt.color } : {}} onClick={() => u("pattern", f.pattern.includes(pt.id) ? f.pattern.filter(x=>x!==pt.id) : [...f.pattern, pt.id])}><PI size={11} /> {pt.label}</button>; })}
+      </div></FG>
       <FG label="解题笔记"><textarea className="ipt" style={{ minHeight: 80, resize: "vertical" }} value={f.notes} onChange={e => u("notes", e.target.value)} /></FG>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         {!cd ? <button className="btn btn-soft btn-sm" style={{ color: "var(--red)" }} onClick={() => sCd(true)}><Trash2 size={12} /> 删除</button> : <button className="btn btn-red btn-sm" onClick={del}>确认删除</button>}
@@ -1332,6 +1446,87 @@ function ImportM({ close, onImport }) {
         </div>
       </div>
     )}
+  </Mdl>);
+}
+
+/* ═══════════════════════ 模式管理 ═══════════════════════ */
+
+function PatMgr({ patterns, setPatterns, close }) {
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [label, setLabel] = useState("");
+  const [color, setColor] = useState(PAT_COLORS[0]);
+  const builtinIds = new Set(DEFAULT_PATTERNS.map(p => p.id));
+
+  const startAdd = () => { setAdding(true); setEditId(null); setLabel(""); setColor(PAT_COLORS[patterns.length % PAT_COLORS.length]); };
+  const startEdit = (p) => { setEditId(p.id); setAdding(false); setLabel(p.label); setColor(p.color); };
+  const cancel = () => { setAdding(false); setEditId(null); setLabel(""); };
+
+  const save = () => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    if (adding) {
+      const id = "custom-" + Date.now();
+      setPatterns(prev => [...prev, { id, label: trimmed, color }]);
+    } else if (editId) {
+      setPatterns(prev => prev.map(p => p.id === editId ? { ...p, label: trimmed, color } : p));
+    }
+    cancel();
+  };
+
+  const del = (id) => { setPatterns(prev => prev.filter(p => p.id !== id)); if (editId === id) cancel(); };
+  const reset = () => { setPatterns(DEFAULT_PATTERNS); cancel(); };
+
+  return (<Mdl title="管理算法模式" close={close}>
+    <div style={{ display: "grid", gap: 10, maxHeight: 420, overflowY: "auto", marginBottom: 14 }}>
+      {patterns.map(p => {
+        const PI = getPatIcon(p);
+        const isBuiltin = builtinIds.has(p.id);
+        const isEditing = editId === p.id;
+        return (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: isEditing ? "var(--ac)" + "08" : "var(--bg)", borderRadius: "var(--Rs)", border: isEditing ? "1px solid var(--ac)" : "1px solid var(--bd)" }}>
+            <div style={{ width: 26, height: 26, borderRadius: 8, background: p.color + "18", color: p.color, display: "grid", placeItems: "center", flexShrink: 0 }}><PI size={13} /></div>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{p.label}</span>
+            {isBuiltin ? <span style={{ fontSize: 10, color: "var(--txm)" }}>内置</span> : <>
+              <button className="btn btn-soft btn-sm" onClick={() => startEdit(p)} style={{ padding: "3px 8px" }}><Pencil size={11} /></button>
+              <button className="btn btn-soft btn-sm" onClick={() => del(p.id)} style={{ padding: "3px 8px", color: "var(--red)" }}><Trash2 size={11} /></button>
+            </>}
+          </div>
+        );
+      })}
+    </div>
+
+    {(adding || editId) && (
+      <div style={{ padding: 14, background: "var(--sf2)", borderRadius: "var(--Rs)", border: "1px solid var(--bd)", marginBottom: 14 }}>
+        <FG label={adding ? "新模式名称" : "编辑名称"}>
+          <input className="ipt" value={label} onChange={e => setLabel(e.target.value)} placeholder="例如：前缀和" autoFocus />
+        </FG>
+        <div style={{ marginTop: 10 }}>
+          <FG label="颜色">
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {PAT_COLORS.map(c => (
+                <button key={c} onClick={() => setColor(c)} style={{
+                  width: 24, height: 24, borderRadius: 6, background: c, border: color === c ? "2px solid var(--tx)" : "2px solid transparent",
+                  cursor: "pointer", transition: "border-color .15s",
+                }} />
+              ))}
+            </div>
+          </FG>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+          <button className="btn btn-soft btn-sm" onClick={cancel}>取消</button>
+          <button className="btn btn-pri btn-sm" onClick={save}><Save size={12} /> {adding ? "添加" : "保存"}</button>
+        </div>
+      </div>
+    )}
+
+    <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
+      <button className="btn btn-soft btn-sm" onClick={reset} style={{ color: "var(--orange)" }}><RotateCcw size={12} /> 重置为默认</button>
+      <div style={{ display: "flex", gap: 8 }}>
+        {!adding && !editId && <button className="btn btn-pri btn-sm" onClick={startAdd}><Plus size={12} /> 添加模式</button>}
+        <button className="btn btn-soft" onClick={close}>关闭</button>
+      </div>
+    </div>
   </Mdl>);
 }
 
