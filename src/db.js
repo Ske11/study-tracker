@@ -103,6 +103,29 @@ function localSave(data) {
   } catch {}
 }
 
+let saving = false;
+let pendingData = null;
+
+async function serialSave(data) {
+  if (saving) {
+    pendingData = data;
+    return;
+  }
+  saving = true;
+  try {
+    await supabaseSave(data);
+  } finally {
+    saving = false;
+    if (pendingData) {
+      const next = pendingData;
+      pendingData = null;
+      await serialSave(next);
+    }
+  }
+}
+
+let debounceTimer = null;
+
 export const db = {
   async load() {
     if (supabase) {
@@ -116,11 +139,16 @@ export const db = {
     return localLoad();
   },
 
-  async save(data) {
+  save(data) {
     localSave(data);
 
-    if (supabase) {
-      await supabaseSave(data);
-    }
+    if (!supabase) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        serialSave(data).then(resolve, reject);
+      }, 500);
+    });
   },
 };
