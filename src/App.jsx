@@ -11,6 +11,7 @@ import {
   Sun, Moon, Monitor,
 } from "lucide-react";
 import { db } from "./db.js";
+import { GlowCard } from "./GlowCard.jsx";
 
 /* ═══════════════════════ 数据定义 ═══════════════════════ */
 
@@ -379,7 +380,7 @@ const CSS = `
   --bd: rgba(0,0,0,.10); --bd2: rgba(0,0,0,.18);
   --tx: #2D3142; --txd: #525A78; --txm: #7880A0;
   --ac: #6366F1; --ac2: #8B5CF6;
-  --green: #22A97A; --orange: #D4A017; --red: #DC5656;
+  --green: #22A97A; --orange: #D4A017; --red: #DC5656; --cyan: #06B6D4; --pink: #F9A8D4;
   --R: 16px; --Rs: 12px; --Rxs: 8px;
   --shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
   --shadow-up: 0 4px 20px rgba(0,0,0,.12);
@@ -390,7 +391,7 @@ const CSS = `
   --bd: rgba(255,255,255,.12); --bd2: rgba(255,255,255,.20);
   --tx: #E8EAF6; --txd: #B0B8D4; --txm: #6B7394;
   --ac: #818CF8; --ac2: #A78BFA;
-  --green: #5AD6A0; --orange: #E8B84A; --red: #E87070;
+  --green: #5AD6A0; --orange: #E8B84A; --red: #E87070; --cyan: #22D3EE; --pink: #F9A8D4;
   --shadow: 0 1px 4px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.25);
   --shadow-up: 0 4px 20px rgba(0,0,0,.40);
 }
@@ -708,16 +709,16 @@ function DashboardView({ items, due, mast, patStats, setView, patterns }) {
   return (<div className="fu">
     <div className="sg">
       {[
-        { label: "总题数", val: items.length, color: "var(--ac)", Icon: Target },
-        { label: "待复习", val: due.length, color: due.length > 0 ? "var(--orange)" : "var(--green)", Icon: Clock },
-        { label: "已掌握", val: mast, color: "var(--green)", Icon: Trophy },
-        { label: "掌握率", val: items.length > 0 ? Math.round(mast / items.length * 100) + "%" : "—", color: "var(--ac2)", Icon: Percent },
+        { label: "总题数", val: items.length, color: "var(--ac)", Icon: Target, hp: null, hs: 270, hn: null },
+        { label: "待复习", val: due.length, color: due.length > 0 ? "var(--orange)" : "var(--green)", Icon: Clock, hp: null, hs: 140, hn: null },
+        { label: "已掌握", val: mast, color: "var(--cyan)", Icon: Trophy, hp: null, hs: 185, hn: null },
+        { label: "掌握率", val: items.length > 0 ? <>{Math.round(mast / items.length * 100)}<span style={{ fontSize: "0.65em" }}>%</span></> : "—", color: "var(--pink)", Icon: Percent, hp: null, hs: 330, hn: null },
       ].map((s, i) => (
-        <div key={i} className="card" style={{ padding: cl(12, 18), textAlign: "center" }}>
+        <GlowCard key={i} huePrev={s.hp} hueSelf={s.hs} hueNext={s.hn} customSize={true} className="card" style={{ padding: cl(12, 18), textAlign: "center" }}>
           <s.Icon size={15} color={s.color} style={{ marginBottom: 6, opacity: .6 }} />
           <div style={{ fontFamily: "var(--mono)", fontSize: cl(22, 28), fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.val}</div>
           <div style={{ fontSize: 11, color: "var(--txm)", marginTop: 6 }}>{s.label}</div>
-        </div>
+        </GlowCard>
       ))}
     </div>
     {due.length > 0 && (
