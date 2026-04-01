@@ -14,7 +14,7 @@ create table if not exists problems (
   added_at date not null default current_date,
   last_review date not null default current_date,
   next_review date not null default current_date,
-  review_count integer not null default 1,
+  review_count integer not null default 0,
   created_at timestamptz not null default now()
 );
 

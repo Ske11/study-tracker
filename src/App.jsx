@@ -363,7 +363,7 @@ function validateImport(data) {
       addedAt: p.addedAt || getToday(),
       lastReview: p.lastReview || getToday(),
       nextReview: p.nextReview || getToday(),
-      reviewCount: p.reviewCount || 1,
+      reviewCount: p.reviewCount ?? 0,
       history: Array.isArray(p.history) ? p.history : [{ date: getToday(), confidence: p.confidence || 3 }],
     });
   }
@@ -529,7 +529,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    db.load().then(d => { setItems(d); setLoaded(true); }).catch(() => { toast("数据加载失败，使用本地缓存", false); setLoaded(true); });
+    db.load().then(d => {
+      const migrated = d.map(p => {
+        const actualReviews = p.history.filter((h, i) => !(i === 0 && h.date === p.addedAt)).length;
+        return p.reviewCount !== actualReviews ? { ...p, reviewCount: actualReviews } : p;
+      });
+      setItems(migrated);
+      setLoaded(true);
+    }).catch(() => { toast("数据加载失败，使用本地缓存", false); setLoaded(true); });
   }, []);
   useEffect(() => {
     if (!loaded) return;
@@ -562,7 +569,7 @@ export default function App() {
 
   function addItem(data) {
     const nd = new Date(); nd.setDate(nd.getDate() + (CONFIDENCE.find(c => c.id === data.confidence)?.next || 1));
-    setItems(prev => [{ id: Date.now().toString(), ...data, addedAt: t, lastReview: t, nextReview: nd.toISOString().slice(0, 10), reviewCount: 1, history: [{ date: t, confidence: data.confidence }] }, ...prev]);
+    setItems(prev => [{ id: Date.now().toString(), ...data, addedAt: t, lastReview: t, nextReview: nd.toISOString().slice(0, 10), reviewCount: 0, history: [{ date: t, confidence: data.confidence }] }, ...prev]);
     setModal(null);
     toast("题目已添加");
   }
@@ -1036,7 +1043,8 @@ function ReportView({ items, patterns }) {
   const thisWeekReviews = [];
   const prevWeekReviews = [];
   items.forEach(item => {
-    item.history.forEach(h => {
+    item.history.forEach((h, idx) => {
+      if (idx === 0 && h.date === item.addedAt) return;
       if (h.date >= weekStartISO) thisWeekReviews.push({ ...h, item });
       else if (h.date >= prevWeekStartISO && h.date < weekStartISO) prevWeekReviews.push({ ...h, item });
     });
@@ -1050,7 +1058,10 @@ function ReportView({ items, patterns }) {
   const improvedThisWeek = [];
   const declinedThisWeek = [];
   items.forEach(item => {
-    const weekHistory = item.history.filter(h => h.date >= weekStartISO);
+    const weekHistory = item.history.filter((h, idx) => {
+      if (idx === 0 && h.date === item.addedAt) return false;
+      return h.date >= weekStartISO;
+    });
     if (weekHistory.length >= 2) {
       const first = weekHistory[0].confidence;
       const last = weekHistory[weekHistory.length - 1].confidence;
@@ -1223,7 +1234,7 @@ function QCard({ p, onR, onE, sd, patterns }) {
             {pats.map(pt => { const PI = getPatIcon(pt); return <span key={pt.id} className="tag" style={{ color: pt.color, borderColor: pt.color + "33" }}><PI size={11} /> {pt.label}</span>; })}
             {diff && <span className="tag" style={{ color: diff.color, borderColor: diff.color + "33" }}>{diff.label}</span>}
             <span className="tag">{conf?.emoji} {conf?.label}</span>
-            <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--txm)" }}>复习{p.reviewCount}次</span>
+            {p.reviewCount > 0 && <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--txm)" }}>复习{p.reviewCount}次</span>}
           </div>
         </div>
         <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
