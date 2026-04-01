@@ -15,7 +15,7 @@ function toDbRow(item) {
     added_at: item.addedAt,
     last_review: item.lastReview,
     next_review: item.nextReview,
-    review_count: item.reviewCount || 1,
+    review_count: item.reviewCount ?? 0,
   };
 }
 
