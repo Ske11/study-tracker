@@ -1036,7 +1036,8 @@ function ReportView({ items, patterns }) {
   const thisWeekReviews = [];
   const prevWeekReviews = [];
   items.forEach(item => {
-    item.history.forEach(h => {
+    item.history.forEach((h, idx) => {
+      if (idx === 0 && h.date === item.addedAt) return; // 跳过首次录入
       if (h.date >= weekStartISO) thisWeekReviews.push({ ...h, item });
       else if (h.date >= prevWeekStartISO && h.date < weekStartISO) prevWeekReviews.push({ ...h, item });
     });
