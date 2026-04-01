@@ -37,6 +37,10 @@ function fromDbRow(row, history) {
   };
 }
 
+function throwIfError({ error }) {
+  if (error) throw error;
+}
+
 async function supabaseLoad() {
   const { data: problems, error: pErr } = await supabase
     .from("problems")
@@ -60,23 +64,22 @@ async function supabaseLoad() {
 }
 
 async function supabaseSave(items) {
-  const { data: existing } = await supabase.from("problems").select("id");
+  const { data: existing, error: fetchErr } = await supabase.from("problems").select("id");
+  if (fetchErr) throw fetchErr;
+
   const existingIds = new Set((existing || []).map((r) => r.id));
   const currentIds = new Set(items.map((i) => i.id));
 
   const toDelete = [...existingIds].filter((id) => !currentIds.has(id));
   if (toDelete.length > 0) {
-    await supabase.from("problems").delete().in("id", toDelete);
+    throwIfError(await supabase.from("problems").delete().in("id", toDelete));
   }
 
   for (const item of items) {
     const row = toDbRow(item);
-    await supabase.from("problems").upsert(row, { onConflict: "id" });
+    throwIfError(await supabase.from("problems").upsert(row, { onConflict: "id" }));
 
-    await supabase
-      .from("review_history")
-      .delete()
-      .eq("problem_id", item.id);
+    throwIfError(await supabase.from("review_history").delete().eq("problem_id", item.id));
 
     if (item.history && item.history.length > 0) {
       const historyRows = item.history.map((h) => ({
@@ -84,7 +87,7 @@ async function supabaseSave(items) {
         date: h.date,
         confidence: h.confidence,
       }));
-      await supabase.from("review_history").insert(historyRows);
+      throwIfError(await supabase.from("review_history").insert(historyRows));
     }
   }
 }
@@ -103,39 +106,23 @@ function localSave(data) {
   } catch {}
 }
 
-let saving = false;
-let pendingData = null;
-
-async function serialSave(data) {
-  if (saving) {
-    pendingData = data;
-    return;
-  }
-  saving = true;
-  try {
-    await supabaseSave(data);
-  } finally {
-    saving = false;
-    if (pendingData) {
-      const next = pendingData;
-      pendingData = null;
-      await serialSave(next);
-    }
-  }
-}
-
+let saveQueue = Promise.resolve();
 let debounceTimer = null;
+let pendingResolvers = [];
 
 export const db = {
   async load() {
     if (supabase) {
       try {
-        return await supabaseLoad();
+        const data = await supabaseLoad();
+        console.log(`[db] Loaded ${data.length} items from Supabase`);
+        return data;
       } catch (e) {
-        console.warn("Supabase load failed, falling back to localStorage:", e);
+        console.error("[db] Supabase load failed, falling back to localStorage:", e);
         return localLoad();
       }
     }
+    console.log("[db] No Supabase config, using localStorage");
     return localLoad();
   },
 
@@ -145,9 +132,17 @@ export const db = {
     if (!supabase) return Promise.resolve();
 
     return new Promise((resolve, reject) => {
+      pendingResolvers.push({ resolve, reject });
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        serialSave(data).then(resolve, reject);
+        const resolvers = pendingResolvers.splice(0);
+        saveQueue = saveQueue
+          .then(() => supabaseSave(data))
+          .then(() => resolvers.forEach((r) => r.resolve()))
+          .catch((e) => {
+            console.error("[db] Supabase save failed:", e);
+            resolvers.forEach((r) => r.reject(e));
+          });
       }, 500);
     });
   },
