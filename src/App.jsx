@@ -45,7 +45,12 @@ const DEFAULT_PATTERNS = [
 const PAT_COLORS = ["#DC5656","#D9566E","#8B6FD6","#6A70D6","#5558CC","#1EA896","#22A97A","#36B065","#7DA828","#D4A017","#D97A2B","#C25CD6","#4A8FD6","#7C8898","#E06690","#3A86FF"];
 
 function getPatIcon(pat) { return BUILTIN_ICON_MAP[pat.id] || Code; }
-function normPat(p) { return Array.isArray(p) ? p : (p ? [p] : ["other"]); }
+function normPat(p, validIds) {
+  const arr = Array.isArray(p) ? p : (p ? [p] : ["other"]);
+  if (!validIds) return arr;
+  const filtered = arr.filter(id => validIds.has(id));
+  return filtered.length > 0 ? filtered : ["other"];
+}
 
 function loadCustomPatterns() {
   try { const d = JSON.parse(localStorage.getItem("lc-patterns-v1")); return Array.isArray(d) ? d : null; } catch { return null; }
@@ -560,12 +565,13 @@ export default function App() {
   const t = getToday();
   const due = useMemo(() => items.filter(p => p.nextReview <= t), [items, t]);
   const mast = useMemo(() => items.filter(p => p.confidence >= 4).length, [items]);
+  const validPatIds = useMemo(() => new Set(patterns.map(p => p.id)), [patterns]);
   const patStats = useMemo(() =>
     patterns.map(pat => {
-      const arr = items.filter(p => normPat(p.pattern).includes(pat.id));
+      const arr = items.filter(p => normPat(p.pattern, validPatIds).includes(pat.id));
       return { ...pat, total: arr.length, mastered: arr.filter(p => p.confidence >= 4).length, due: arr.filter(p => p.nextReview <= t).length };
     }).filter(p => p.total > 0)
-  , [items, t, patterns]);
+  , [items, t, patterns, validPatIds]);
 
   function addItem(data) {
     const nd = new Date(); nd.setDate(nd.getDate() + (CONFIDENCE.find(c => c.id === data.confidence)?.next || 1));
@@ -582,7 +588,7 @@ export default function App() {
   }
 
   const filtered = useMemo(() => {
-    let base = filter === "all" ? items : items.filter(p => normPat(p.pattern).includes(filter));
+    let base = filter === "all" ? items : items.filter(p => normPat(p.pattern, validPatIds).includes(filter));
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       base = base.filter(p => (p.title || "").toLowerCase().includes(q) || (p.number || "").includes(q));
@@ -909,10 +915,11 @@ function SheetLabel({ icon, children }) {
 /* ═══════════════════════ 题目关联图谱 ═══════════════════════ */
 
 function GraphView({ items, patterns }) {
+  const validIds = useMemo(() => new Set(patterns.map(x => x.id)), [patterns]);
   const groups = useMemo(() => {
     const map = {};
     items.forEach(item => {
-      normPat(item.pattern).forEach(pid => {
+      normPat(item.pattern, validIds).forEach(pid => {
         if (!map[pid]) map[pid] = [];
         map[pid].push(item);
       });
@@ -1025,6 +1032,7 @@ function GraphView({ items, patterns }) {
 /* ═══════════════════════ 每周复盘报告 ═══════════════════════ */
 
 function ReportView({ items, patterns }) {
+  const validIds = useMemo(() => new Set(patterns.map(x => x.id)), [patterns]);
   const t = getToday();
   const todayDate = new Date(t);
   const dayOfWeek = todayDate.getDay();
@@ -1084,7 +1092,7 @@ function ReportView({ items, patterns }) {
   // 模式分析
   const patternReviewCount = {};
   thisWeekReviews.forEach(r => {
-    normPat(r.item.pattern).forEach(pid => {
+    normPat(r.item.pattern, validIds).forEach(pid => {
       patternReviewCount[pid] = (patternReviewCount[pid] || 0) + 1;
     });
   });
@@ -1093,13 +1101,13 @@ function ReportView({ items, patterns }) {
   // 薄弱模式推荐
   const weakPatterns = useMemo(() => {
     return patterns.map(pat => {
-      const arr = items.filter(p => normPat(p.pattern).includes(pat.id));
+      const arr = items.filter(p => normPat(p.pattern, validIds).includes(pat.id));
       if (arr.length === 0) return null;
       const avgConf = arr.reduce((s, p) => s + p.confidence, 0) / arr.length;
       const dueCount = arr.filter(p => p.nextReview <= t).length;
       return { ...pat, avgConf, total: arr.length, dueCount };
     }).filter(Boolean).sort((a, b) => a.avgConf - b.avgConf).slice(0, 3);
-  }, [items, t, patterns]);
+  }, [items, t, patterns, validIds]);
 
   const delta = (cur, prev) => {
     if (prev === 0) return cur > 0 ? { icon: ArrowUp, color: "var(--green)", text: `+${cur}` } : { icon: Minus, color: "var(--txm)", text: "持平" };
@@ -1218,7 +1226,8 @@ function ReportView({ items, patterns }) {
 /* ═══════════════════════ 题目卡片 ═══════════════════════ */
 
 function QCard({ p, onR, onE, sd, patterns }) {
-  const pats = normPat(p.pattern).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" });
+  const validIds = useMemo(() => new Set((patterns || DEFAULT_PATTERNS).map(x => x.id)), [patterns]);
+  const pats = normPat(p.pattern, validIds).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid) || { id: "other", label: "其他", color: "#7C8898" });
   const diff = DIFFICULTY.find(x => x.id === p.difficulty);
   const conf = CONFIDENCE.find(x => x.id === p.confidence);
   const t = getToday(), isDue = p.nextReview <= t, dd = daysDiff(p.nextReview, t);
@@ -1316,7 +1325,8 @@ function AddM({ close, add, items, patterns }) {
 }
 
 function RevM({ p, close, rev, patterns }) {
-  const pats = normPat(p.pattern).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" });
+  const validIds = useMemo(() => new Set((patterns || DEFAULT_PATTERNS).map(x => x.id)), [patterns]);
+  const pats = normPat(p.pattern, validIds).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid) || { id: "other", label: "其他", color: "#7C8898" });
   const diff = DIFFICULTY.find(x => x.id === p.difficulty);
   return (<Mdl title="复习评估" close={close}>
     <div style={{ padding: cl(12, 16), background: "var(--sf2)", borderRadius: "var(--Rs)", border: "1px solid var(--bd)", marginBottom: 16 }}>
