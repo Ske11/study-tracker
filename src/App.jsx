@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ArrowLeftRight, SlidersHorizontal, Search, GitFork, Layers,
   Diamond, AlignJustify, Hash, TreePine, Share2, Link, RotateCcw,
@@ -927,6 +927,23 @@ function GraphView({ items, patterns }) {
     return map;
   }, [items]);
 
+  // 动态计算关联：同一道题标了多个模式，这些模式两两互为关联
+  const relatedMap = useMemo(() => {
+    const map = {};
+    items.forEach(item => {
+      const pats = normPat(item.pattern, validIds);
+      if (pats.length < 2) return;
+      pats.forEach(a => {
+        pats.forEach(b => {
+          if (a === b) return;
+          if (!map[a]) map[a] = {};
+          map[a][b] = (map[a][b] || 0) + 1;
+        });
+      });
+    });
+    return map;
+  }, [items, validIds]);
+
   const patternKeys = Object.keys(groups);
 
   if (items.length === 0) return <div className="fu"><Empty text="添加题目后可以查看关联图谱" sub="题目会按算法模式自动分组，并展示模式间的关联关系" /></div>;
@@ -947,8 +964,7 @@ function GraphView({ items, patterns }) {
         {patternKeys.map(pid => {
           const pat = patterns.find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" };
           const PatIcon = getPatIcon(pat);
-          const cs = CHEAT_SHEETS[pid];
-          const relatedInUse = (cs?.related || []).filter(r => groups[r]);
+          const related = Object.keys(relatedMap[pid] || {}).sort((a, b) => (relatedMap[pid][b] || 0) - (relatedMap[pid][a] || 0));
           return (
             <div key={pid} style={{ textAlign: "center" }}>
               <div style={{
@@ -960,11 +976,11 @@ function GraphView({ items, patterns }) {
               </div>
               <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>{pat.label}</div>
               <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--txm)" }}>{groups[pid].length} 题</div>
-              {relatedInUse.length > 0 && (
+              {related.length > 0 && (
                 <div style={{ display: "flex", gap: 2, justifyContent: "center", marginTop: 4 }}>
-                  {relatedInUse.map(r => {
+                  {related.map(r => {
                     const rp = patterns.find(x => x.id === r);
-                    return <div key={r} style={{ width: 6, height: 6, borderRadius: 3, background: rp?.color || "var(--bd)" }} title={`关联: ${rp?.label}`} />;
+                    return <div key={r} style={{ width: 6, height: 6, borderRadius: 3, background: rp?.color || "var(--bd)" }} />;
                   })}
                 </div>
               )}
@@ -980,13 +996,12 @@ function GraphView({ items, patterns }) {
       {patternKeys.map(pid => {
         const pat = patterns.find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" };
         const PatIcon = getPatIcon(pat);
-        const cs = CHEAT_SHEETS[pid];
         const problemList = groups[pid].sort((a, b) => {
           const da = DIFFICULTY.findIndex(d => d.id === a.difficulty);
           const db2 = DIFFICULTY.findIndex(d => d.id === b.difficulty);
           return da - db2;
         });
-        const relatedPats = (cs?.related || []).filter(r => groups[r]);
+        const relatedPats = Object.keys(relatedMap[pid] || {}).sort((a, b) => (relatedMap[pid][b] || 0) - (relatedMap[pid][a] || 0));
         return (
           <div key={pid} className="card" style={{ padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -994,19 +1009,34 @@ function GraphView({ items, patterns }) {
               <span style={{ fontSize: 14, fontWeight: 600 }}>{pat.label}</span>
               <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--txm)" }}>{problemList.length} 题</span>
             </div>
-            <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ display: "grid", gap: 2 }}>
               {problemList.map((item, idx) => {
                 const diff = DIFFICULTY.find(d => d.id === item.difficulty);
                 const conf = CONFIDENCE.find(c => c.id === item.confidence);
+                const nextDiff = idx < problemList.length - 1 ? problemList[idx + 1].difficulty : item.difficulty;
+                const isLast = idx === problemList.length - 1;
+                const isFirst = idx === 0;
+                const isGroupEnd = nextDiff !== item.difficulty;
                 return (
-                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "var(--sf2)", borderRadius: "var(--Rxs)" }}>
-                    {item.number && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ac)", fontWeight: 600, minWidth: 32 }}>#{item.number}</span>}
-                    <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{item.title || "无标题"}</span>
-                    <span style={{ fontSize: 11, color: diff?.color }}>{diff?.label}</span>
-                    <span style={{ fontSize: 13 }}>{conf?.emoji}</span>
-                    {idx < problemList.length - 1 && problemList[idx + 1] && (
-                      <ArrowDown size={10} color="var(--txm)" style={{ opacity: 0.4 }} />
-                    )}
+                  <div key={item.id} style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
+                    <div style={{
+                      width: 4, flexShrink: 0,
+                      background: diff?.color || "var(--bd)",
+                      borderRadius: `${isFirst || (idx > 0 && problemList[idx - 1].difficulty !== item.difficulty) ? "3px" : "0"} ${isFirst || (idx > 0 && problemList[idx - 1].difficulty !== item.difficulty) ? "3px" : "0"} ${isLast || isGroupEnd ? "3px" : "0"} ${isLast || isGroupEnd ? "3px" : "0"}`,
+                      marginBottom: isGroupEnd && !isLast ? 4 : 0,
+                    }} />
+                    <div style={{
+                      flex: 1, display: "flex", alignItems: "center", gap: 8,
+                      padding: "6px 10px", background: "var(--sf2)",
+                      borderRadius: "var(--Rxs)",
+                      marginLeft: 6,
+                      marginBottom: isGroupEnd && !isLast ? 4 : 0,
+                    }}>
+                      {item.number && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ac)", fontWeight: 600, minWidth: 32 }}>#{item.number}</span>}
+                      <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{item.title || "无标题"}</span>
+                      <span style={{ fontSize: 11, color: diff?.color }}>{diff?.label}</span>
+                      <span style={{ fontSize: 13 }}>{conf?.emoji}</span>
+                    </div>
                   </div>
                 );
               })}
@@ -1018,7 +1048,8 @@ function GraphView({ items, patterns }) {
                   const rp = patterns.find(x => x.id === r);
                   if (!rp) return null;
                   const RI = getPatIcon(rp);
-                  return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4 }}><RI size={10} /> {rp.label}</span>;
+                  const cnt = relatedMap[pid][r];
+                  return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4 }}><RI size={10} /> {rp.label}{cnt > 1 ? ` (${cnt}题)` : ""}</span>;
                 })}
               </div>
             )}
@@ -1162,7 +1193,7 @@ function ReportView({ items, patterns }) {
             <div style={{
               width: "100%", maxWidth: 36, borderRadius: 6,
               height: `${Math.max(d.count / maxDaily * 56, d.count > 0 ? 8 : 3)}px`,
-              background: d.isToday ? "var(--ac)" : d.count > 0 ? "var(--ac2)" + "66" : "var(--bg2)",
+              background: d.isToday ? "var(--ac)" : d.count > 0 ? "color-mix(in srgb, var(--ac) 40%, transparent)" : "var(--bg2)",
               transition: "height .4s ease",
             }} />
             <span style={{ fontSize: 11, fontWeight: d.isToday ? 700 : 400, color: d.isToday ? "var(--ac)" : "var(--txm)" }}>
