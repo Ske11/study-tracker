@@ -361,6 +361,7 @@ function validateImport(data) {
       number: p.number || "",
       title: p.title,
       pattern: normPat(p.pattern),
+      altPattern: Array.isArray(p.altPattern) ? p.altPattern : [],
       difficulty: p.difficulty || "medium",
       confidence: p.confidence || 3,
       notes: p.notes || "",
@@ -927,21 +928,22 @@ function GraphView({ items, patterns }) {
     return map;
   }, [items]);
 
-  // 动态计算关联：同一道题标了多个模式，这些模式两两互为关联
-  const relatedMap = useMemo(() => {
-    const map = {};
+  // 动态计算关联：combined = 主要模式组合使用, alternative = 替代解法
+  const { combinedMap, altMap } = useMemo(() => {
+    const cMap = {}, aMap = {};
     items.forEach(item => {
       const pats = normPat(item.pattern, validIds);
-      if (pats.length < 2) return;
-      pats.forEach(a => {
-        pats.forEach(b => {
-          if (a === b) return;
-          if (!map[a]) map[a] = {};
-          map[a][b] = (map[a][b] || 0) + 1;
-        });
-      });
+      const alts = (item.altPattern || []).filter(id => validIds.has(id));
+      // 主要模式之间：组合关联
+      if (pats.length >= 2) {
+        pats.forEach(a => { pats.forEach(b => { if (a !== b) { if (!cMap[a]) cMap[a] = {}; cMap[a][b] = (cMap[a][b] || 0) + 1; } }); });
+      }
+      // 主要模式与替代模式之间：替代关联
+      if (alts.length > 0) {
+        pats.forEach(a => { alts.forEach(b => { if (!aMap[a]) aMap[a] = {}; aMap[a][b] = (aMap[a][b] || 0) + 1; if (!aMap[b]) aMap[b] = {}; aMap[b][a] = (aMap[b][a] || 0) + 1; }); });
+      }
     });
-    return map;
+    return { combinedMap: cMap, altMap: aMap };
   }, [items, validIds]);
 
   const patternKeys = Object.keys(groups);
@@ -964,7 +966,8 @@ function GraphView({ items, patterns }) {
         {patternKeys.map(pid => {
           const pat = patterns.find(x => x.id === pid) || { id: pid, label: pid, color: "#7C8898" };
           const PatIcon = getPatIcon(pat);
-          const related = Object.keys(relatedMap[pid] || {}).sort((a, b) => (relatedMap[pid][b] || 0) - (relatedMap[pid][a] || 0));
+          const combined = Object.keys(combinedMap[pid] || {});
+          const alts = Object.keys(altMap[pid] || {});
           return (
             <div key={pid} style={{ textAlign: "center" }}>
               <div style={{
@@ -976,11 +979,16 @@ function GraphView({ items, patterns }) {
               </div>
               <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>{pat.label}</div>
               <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--txm)" }}>{groups[pid].length} 题</div>
-              {related.length > 0 && (
+              {(combined.length > 0 || alts.length > 0) && (
                 <div style={{ display: "flex", gap: 2, justifyContent: "center", marginTop: 4 }}>
-                  {related.map(r => {
+                  {combined.map(r => {
                     const rp = patterns.find(x => x.id === r);
                     return <div key={r} style={{ width: 6, height: 6, borderRadius: 3, background: rp?.color || "var(--bd)" }} />;
+                  })}
+                  {alts.length > 0 && combined.length > 0 && <div style={{ width: 1, height: 6, background: "var(--bd)", margin: "0 1px" }} />}
+                  {alts.map(r => {
+                    const rp = patterns.find(x => x.id === r);
+                    return <div key={r} style={{ width: 6, height: 6, borderRadius: 3, background: rp?.color || "var(--bd)", opacity: 0.45 }} />;
                   })}
                 </div>
               )}
@@ -1001,7 +1009,8 @@ function GraphView({ items, patterns }) {
           const db2 = DIFFICULTY.findIndex(d => d.id === b.difficulty);
           return da - db2;
         });
-        const relatedPats = Object.keys(relatedMap[pid] || {}).sort((a, b) => (relatedMap[pid][b] || 0) - (relatedMap[pid][a] || 0));
+        const combinedPats = Object.keys(combinedMap[pid] || {}).sort((a, b) => (combinedMap[pid][b] || 0) - (combinedMap[pid][a] || 0));
+        const altPats = Object.keys(altMap[pid] || {}).sort((a, b) => (altMap[pid][b] || 0) - (altMap[pid][a] || 0));
         return (
           <div key={pid} className="card" style={{ padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -1041,16 +1050,28 @@ function GraphView({ items, patterns }) {
                 );
               })}
             </div>
-            {relatedPats.length > 0 && (
+            {(combinedPats.length > 0 || altPats.length > 0) && (
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
-                <span style={{ fontSize: 11, color: "var(--txm)", marginRight: 6 }}>关联模式：</span>
-                {relatedPats.map(r => {
-                  const rp = patterns.find(x => x.id === r);
-                  if (!rp) return null;
-                  const RI = getPatIcon(rp);
-                  const cnt = relatedMap[pid][r];
-                  return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4 }}><RI size={10} /> {rp.label}{cnt > 1 ? ` (${cnt}题)` : ""}</span>;
-                })}
+                {combinedPats.length > 0 && (<>
+                  <span style={{ fontSize: 11, color: "var(--txm)", marginRight: 6 }}>组合使用：</span>
+                  {combinedPats.map(r => {
+                    const rp = patterns.find(x => x.id === r);
+                    if (!rp) return null;
+                    const RI = getPatIcon(rp);
+                    const cnt = combinedMap[pid][r];
+                    return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4 }}><RI size={10} /> {rp.label}{cnt > 1 ? ` (${cnt}题)` : ""}</span>;
+                  })}
+                </>)}
+                {altPats.length > 0 && (<div style={combinedPats.length > 0 ? { marginTop: 8 } : {}}>
+                  <span style={{ fontSize: 11, color: "var(--txm)", marginRight: 6 }}>替代解法：</span>
+                  {altPats.map(r => {
+                    const rp = patterns.find(x => x.id === r);
+                    if (!rp) return null;
+                    const RI = getPatIcon(rp);
+                    const cnt = altMap[pid][r];
+                    return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4, opacity: 0.75 }}><RI size={10} /> {rp.label}{cnt > 1 ? ` (${cnt}题)` : ""}</span>;
+                  })}
+                </div>)}
               </div>
             )}
           </div>
@@ -1259,6 +1280,7 @@ function ReportView({ items, patterns }) {
 function QCard({ p, onR, onE, sd, patterns }) {
   const validIds = useMemo(() => new Set((patterns || DEFAULT_PATTERNS).map(x => x.id)), [patterns]);
   const pats = normPat(p.pattern, validIds).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid) || { id: "other", label: "其他", color: "#7C8898" });
+  const altPats = (p.altPattern || []).filter(id => validIds.has(id)).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid)).filter(Boolean);
   const diff = DIFFICULTY.find(x => x.id === p.difficulty);
   const conf = CONFIDENCE.find(x => x.id === p.confidence);
   const t = getToday(), isDue = p.nextReview <= t, dd = daysDiff(p.nextReview, t);
@@ -1272,6 +1294,8 @@ function QCard({ p, onR, onE, sd, patterns }) {
           </div>
           <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
             {pats.map(pt => { const PI = getPatIcon(pt); return <span key={pt.id} className="tag" style={{ color: pt.color, borderColor: pt.color + "33" }}><PI size={11} /> {pt.label}</span>; })}
+            {altPats.length > 0 && <span style={{ fontSize: 10, color: "var(--txm)" }}>|</span>}
+            {altPats.map(pt => { const PI = getPatIcon(pt); return <span key={pt.id} className="tag" style={{ color: pt.color, borderColor: pt.color + "33", opacity: 0.65 }}><PI size={11} /> {pt.label}</span>; })}
             {diff && <span className="tag" style={{ color: diff.color, borderColor: diff.color + "33" }}>{diff.label}</span>}
             <span className="tag">{conf?.emoji} {conf?.label}</span>
             {p.reviewCount > 0 && <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--txm)" }}>复习{p.reviewCount}次</span>}
@@ -1306,7 +1330,7 @@ function Mdl({ children, close, title }) {
 }
 
 function AddM({ close, add, items, patterns }) {
-  const [f, sF] = useState({ number: "", title: "", pattern: [], difficulty: "medium", confidence: 3, notes: "", url: "" });
+  const [f, sF] = useState({ number: "", title: "", pattern: [], altPattern: [], difficulty: "medium", confidence: 3, notes: "", url: "" });
   const [err, setErr] = useState("");
   const u = (k, v) => {
     sF(p => {
@@ -1321,7 +1345,7 @@ function AddM({ close, add, items, patterns }) {
     const title = f.title.trim();
     if (!title) { setErr("请输入题目名称"); return; }
     if (num && items.some(p => p.number === num)) { setErr(`题号 #${num} 已存在`); return; }
-    add({ ...f, number: num, title, pattern: f.pattern.length > 0 ? f.pattern : ["other"] });
+    add({ ...f, number: num, title, pattern: f.pattern.length > 0 ? f.pattern : ["other"], altPattern: f.altPattern });
   };
   return (<Mdl title="添加题目" close={close}>
     <div style={{ display: "grid", gap: 16 }}>
@@ -1331,8 +1355,11 @@ function AddM({ close, add, items, patterns }) {
       </div>
       <FG label="题目链接"><input className="ipt" placeholder="https://leetcode.cn/problems/two-sum" value={f.url} onChange={e => u("url", e.target.value)} /></FG>
       {err && <div style={{ fontSize: 12, color: "var(--red)", fontWeight: 500, padding: "6px 10px", background: "var(--red)" + "10", borderRadius: "var(--Rxs)" }}>{err}</div>}
-      <FG label="算法模式"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-        {patterns.map(p => { const PI = getPatIcon(p); return <button key={p.id} className={`tag tag-btn ${f.pattern.includes(p.id) ? "tag-on" : ""}`} style={f.pattern.includes(p.id) ? { background: p.color } : {}} onClick={() => u("pattern", f.pattern.includes(p.id) ? f.pattern.filter(x=>x!==p.id) : [...f.pattern, p.id])}><PI size={11} /> {p.label}</button>; })}
+      <FG label="主要模式（组合使用）"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {patterns.map(p => { const PI = getPatIcon(p); const on = f.pattern.includes(p.id); return <button key={p.id} className={`tag tag-btn ${on ? "tag-on" : ""}`} style={on ? { background: p.color } : {}} onClick={() => { sF(prev => ({ ...prev, pattern: on ? prev.pattern.filter(x=>x!==p.id) : [...prev.pattern, p.id], altPattern: prev.altPattern.filter(x=>x!==p.id) })); setErr(""); }}><PI size={11} /> {p.label}</button>; })}
+      </div></FG>
+      <FG label="也可以用（替代解法）"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {patterns.map(p => { const PI = getPatIcon(p); const on = f.altPattern.includes(p.id); return <button key={p.id} className={`tag tag-btn ${on ? "tag-on" : ""}`} style={on ? { background: p.color, opacity: 0.75 } : {}} onClick={() => { sF(prev => ({ ...prev, altPattern: on ? prev.altPattern.filter(x=>x!==p.id) : [...prev.altPattern, p.id], pattern: prev.pattern.filter(x=>x!==p.id) })); setErr(""); }}><PI size={11} /> {p.label}</button>; })}
       </div></FG>
       <FG label="难度"><div style={{ display: "flex", gap: 8 }}>
         {DIFFICULTY.map(d => <button key={d.id} className={`tag tag-btn ${f.difficulty === d.id ? "tag-on" : ""}`} style={f.difficulty === d.id ? { background: d.color } : {}} onClick={() => u("difficulty", d.id)}>{d.label}</button>)}
@@ -1358,6 +1385,7 @@ function AddM({ close, add, items, patterns }) {
 function RevM({ p, close, rev, patterns }) {
   const validIds = useMemo(() => new Set((patterns || DEFAULT_PATTERNS).map(x => x.id)), [patterns]);
   const pats = normPat(p.pattern, validIds).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid) || { id: "other", label: "其他", color: "#7C8898" });
+  const altPats = (p.altPattern || []).filter(id => validIds.has(id)).map(pid => (patterns || DEFAULT_PATTERNS).find(x => x.id === pid)).filter(Boolean);
   const diff = DIFFICULTY.find(x => x.id === p.difficulty);
   return (<Mdl title="复习评估" close={close}>
     <div style={{ padding: cl(12, 16), background: "var(--sf2)", borderRadius: "var(--Rs)", border: "1px solid var(--bd)", marginBottom: 16 }}>
@@ -1367,6 +1395,8 @@ function RevM({ p, close, rev, patterns }) {
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         {pats.map(pt => { const PI = getPatIcon(pt); return <span key={pt.id} className="tag" style={{ color: pt.color, borderColor: pt.color + "33" }}><PI size={11} /> {pt.label}</span>; })}
+        {altPats.length > 0 && <span style={{ fontSize: 10, color: "var(--txm)", alignSelf: "center" }}>|</span>}
+        {altPats.map(pt => { const PI = getPatIcon(pt); return <span key={pt.id} className="tag" style={{ color: pt.color, borderColor: pt.color + "33", opacity: 0.65 }}><PI size={11} /> {pt.label}</span>; })}
         {diff && <span className="tag" style={{ color: diff.color, borderColor: diff.color + "33" }}>{diff.label}</span>}
       </div>
       {p.notes && <div style={{ fontSize: 12, color: "var(--txd)", marginTop: 10, padding: "8px 12px", background: "var(--sf)", borderRadius: "var(--Rxs)", lineHeight: 1.6, borderLeft: `2px solid ${pats[0]?.color || "var(--bd)"}` }}>{p.notes}</div>}
@@ -1398,7 +1428,7 @@ function RevM({ p, close, rev, patterns }) {
 }
 
 function EditM({ p, close, save, del, patterns }) {
-  const [f, sF] = useState({ number: p.number || "", title: p.title || "", notes: p.notes || "", url: p.url || "", pattern: normPat(p.pattern) });
+  const [f, sF] = useState({ number: p.number || "", title: p.title || "", notes: p.notes || "", url: p.url || "", pattern: normPat(p.pattern), altPattern: p.altPattern || [] });
   const [cd, sCd] = useState(false);
   const u = (k, v) => sF(prev => ({ ...prev, [k]: v }));
   return (<Mdl title="编辑题目" close={close}>
@@ -1408,8 +1438,11 @@ function EditM({ p, close, save, del, patterns }) {
         <FG label="题目名称"><input className="ipt" value={f.title} onChange={e => u("title", e.target.value)} /></FG>
       </div>
       <FG label="题目链接"><input className="ipt" placeholder="https://leetcode.cn/problems/two-sum" value={f.url} onChange={e => u("url", e.target.value)} /></FG>
-      <FG label="算法模式"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-        {patterns.map(pt => { const PI = getPatIcon(pt); return <button key={pt.id} className={`tag tag-btn ${f.pattern.includes(pt.id) ? "tag-on" : ""}`} style={f.pattern.includes(pt.id) ? { background: pt.color } : {}} onClick={() => u("pattern", f.pattern.includes(pt.id) ? f.pattern.filter(x=>x!==pt.id) : [...f.pattern, pt.id])}><PI size={11} /> {pt.label}</button>; })}
+      <FG label="主要模式（组合使用）"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {patterns.map(pt => { const PI = getPatIcon(pt); const on = f.pattern.includes(pt.id); return <button key={pt.id} className={`tag tag-btn ${on ? "tag-on" : ""}`} style={on ? { background: pt.color } : {}} onClick={() => sF(prev => ({ ...prev, pattern: on ? prev.pattern.filter(x=>x!==pt.id) : [...prev.pattern, pt.id], altPattern: prev.altPattern.filter(x=>x!==pt.id) }))}><PI size={11} /> {pt.label}</button>; })}
+      </div></FG>
+      <FG label="也可以用（替代解法）"><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {patterns.map(pt => { const PI = getPatIcon(pt); const on = f.altPattern.includes(pt.id); return <button key={pt.id} className={`tag tag-btn ${on ? "tag-on" : ""}`} style={on ? { background: pt.color, opacity: 0.75 } : {}} onClick={() => sF(prev => ({ ...prev, altPattern: on ? prev.altPattern.filter(x=>x!==pt.id) : [...prev.altPattern, pt.id], pattern: prev.pattern.filter(x=>x!==pt.id) }))}><PI size={11} /> {pt.label}</button>; })}
       </div></FG>
       <FG label="解题笔记"><textarea className="ipt" style={{ minHeight: 80, resize: "vertical" }} value={f.notes} onChange={e => u("notes", e.target.value)} /></FG>
       <div style={{ display: "flex", justifyContent: "space-between" }}>

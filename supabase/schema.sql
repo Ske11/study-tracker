@@ -7,6 +7,7 @@ create table if not exists problems (
   number text,
   title text not null,
   pattern text not null default 'other',
+  alt_pattern text not null default '[]',
   difficulty text not null default 'medium',
   confidence integer not null default 3,
   notes text default '',
