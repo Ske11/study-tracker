@@ -2,8 +2,8 @@ import { supabase } from "./supabase.js";
 
 const SK = "lc-tracker-v3";
 
-function toDbRow(item) {
-  return {
+function toDbRow(item, userId) {
+  const row = {
     id: item.id,
     number: item.number || "",
     title: item.title || "",
@@ -18,6 +18,8 @@ function toDbRow(item) {
     next_review: item.nextReview,
     review_count: item.reviewCount ?? 0,
   };
+  if (userId) row.user_id = userId;
+  return row;
 }
 
 function fromDbRow(row, history) {
@@ -65,7 +67,7 @@ async function supabaseLoad() {
   return problems.map((row) => fromDbRow(row, historyMap[row.id] || []));
 }
 
-async function supabaseSave(items) {
+async function supabaseSave(items, userId) {
   const { data: existing, error: fetchErr } = await supabase.from("problems").select("id");
   if (fetchErr) throw fetchErr;
 
@@ -78,7 +80,7 @@ async function supabaseSave(items) {
   }
 
   for (const item of items) {
-    const row = toDbRow(item);
+    const row = toDbRow(item, userId);
     throwIfError(await supabase.from("problems").upsert(row, { onConflict: "id" }));
 
     throwIfError(await supabase.from("review_history").delete().eq("problem_id", item.id));
@@ -88,6 +90,7 @@ async function supabaseSave(items) {
         problem_id: item.id,
         date: h.date,
         confidence: h.confidence,
+        user_id: userId,
       }));
       throwIfError(await supabase.from("review_history").insert(historyRows));
     }
@@ -128,10 +131,10 @@ export const db = {
     return localLoad();
   },
 
-  save(data) {
+  save(data, userId) {
     localSave(data);
 
-    if (!supabase) return Promise.resolve();
+    if (!supabase || !userId) return Promise.resolve();
 
     return new Promise((resolve, reject) => {
       pendingResolvers.push({ resolve, reject });
@@ -139,7 +142,7 @@ export const db = {
       debounceTimer = setTimeout(() => {
         const resolvers = pendingResolvers.splice(0);
         saveQueue = saveQueue
-          .then(() => supabaseSave(data))
+          .then(() => supabaseSave(data, userId))
           .then(() => resolvers.forEach((r) => r.resolve()))
           .catch((e) => {
             console.error("[db] Supabase save failed:", e);

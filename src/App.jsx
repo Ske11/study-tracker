@@ -8,9 +8,10 @@ import {
   FileText, GitBranch, CalendarDays, ArrowRight, ArrowUp, ArrowDown, Minus,
   Code, Zap, Eye, TrendingUp, CircleDot, Check, AlertTriangle, ArrowUpDown,
   Download, Upload, FileUp, ExternalLink, Settings, Palette,
-  Sun, Moon, Monitor,
+  Sun, Moon, Monitor, LogIn, LogOut,
 } from "lucide-react";
 import { db } from "./db.js";
+import { supabase, signInWithGitHub, signOut, onAuthStateChange } from "./supabase.js";
 import { GlowCard } from "./GlowCard.jsx";
 
 /* ═══════════════════════ 数据定义 ═══════════════════════ */
@@ -527,6 +528,8 @@ export default function App() {
   const [patMgr, setPatMgr] = useState(false);
   const [themeMode, setThemeMode] = useState(getStoredTheme);
   const [themeDrop, setThemeDrop] = useState(false);
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(!!supabase);
 
   const toast = useCallback((msg, ok = true) => {
     const id = Date.now();
@@ -534,7 +537,25 @@ export default function App() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
 
+  // Auth state
   useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = onAuthStateChange((s) => {
+      if (!s && session) { setLoaded(false); setItems([]); }
+      setSession(s);
+      setAuthLoading(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load data
+  useEffect(() => {
+    if (authLoading) return;
+    if (supabase && !session) { setItems([]); setLoaded(true); return; }
     db.load().then(d => {
       const migrated = d.map(p => {
         const actualReviews = p.history.filter((h, i) => !(i === 0 && h.date === p.addedAt)).length;
@@ -543,10 +564,13 @@ export default function App() {
       setItems(migrated);
       setLoaded(true);
     }).catch(() => { toast("数据加载失败，使用本地缓存", false); setLoaded(true); });
-  }, []);
+  }, [session, authLoading]);
+
+  // Save data
   useEffect(() => {
     if (!loaded) return;
-    db.save(items).catch(() => toast("云端保存失败，已保存到本地", false));
+    const userId = session?.user?.id;
+    db.save(items, userId).catch(() => toast("云端保存失败，已保存到本地", false));
   }, [items, loaded]);
   useEffect(() => { saveCustomPatterns(patterns); }, [patterns]);
 
@@ -653,6 +677,15 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {supabase && (session ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {session.user.user_metadata?.avatar_url && <img src={session.user.user_metadata.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: "50%" }} />}
+                  <span style={{ fontSize: 11, color: "var(--txm)", maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.user.user_metadata?.user_name || session.user.email}</span>
+                  <button className="btn btn-soft btn-sm" onClick={signOut} title="退出登录"><LogOut size={14} /></button>
+                </div>
+              ) : (
+                <button className="btn btn-soft btn-sm" onClick={signInWithGitHub} title="GitHub 登录"><LogIn size={14} /></button>
+              ))}
               <div style={{ position: "relative" }}>
                 <button className="btn btn-soft btn-sm" onClick={() => setThemeDrop(v => !v)} title="主题设置">
                   {themeMode === "dark" ? <Moon size={14} /> : themeMode === "light" ? <Sun size={14} /> : <Monitor size={14} />}
@@ -688,14 +721,25 @@ export default function App() {
         </div>
       </header>
 
-      <div className="cnt">
-        {view === "dashboard" && <DashboardView items={items} due={due} mast={mast} patStats={patStats} setView={setView} patterns={patterns} />}
-        {view === "due" && <DueView due={due} setModal={setModal} patterns={patterns} />}
-        {view === "all" && <AllView items={items} filtered={filtered} filter={filter} setFilter={setFilter} patStats={patStats} setModal={setModal} search={search} setSearch={setSearch} sortBy={sortBy} setSortBy={setSortBy} patterns={patterns} />}
-        {view === "cheatsheet" && <CheatSheetView patterns={patterns} />}
-        {view === "graph" && <GraphView items={items} patterns={patterns} />}
-        {view === "report" && <ReportView items={items} patterns={patterns} />}
-      </div>
+      {supabase && !session ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 16 }}>
+          <Sparkles size={40} color="var(--ac)" style={{ opacity: 0.6 }} />
+          <h2 style={{ fontSize: 20, fontWeight: 600 }}>请先登录</h2>
+          <p style={{ color: "var(--txm)", fontSize: 14 }}>使用 GitHub 账号登录以同步你的刷题数据</p>
+          <button className="btn btn-pri" onClick={signInWithGitHub} style={{ fontSize: 15, padding: "10px 24px", gap: 8 }}>
+            <LogIn size={18} /> GitHub 登录
+          </button>
+        </div>
+      ) : (
+        <div className="cnt">
+          {view === "dashboard" && <DashboardView items={items} due={due} mast={mast} patStats={patStats} setView={setView} patterns={patterns} />}
+          {view === "due" && <DueView due={due} setModal={setModal} patterns={patterns} />}
+          {view === "all" && <AllView items={items} filtered={filtered} filter={filter} setFilter={setFilter} patStats={patStats} setModal={setModal} search={search} setSearch={setSearch} sortBy={sortBy} setSortBy={setSortBy} patterns={patterns} />}
+          {view === "cheatsheet" && <CheatSheetView patterns={patterns} />}
+          {view === "graph" && <GraphView items={items} patterns={patterns} />}
+          {view === "report" && <ReportView items={items} patterns={patterns} />}
+        </div>
+      )}
     </div>
 
     {modal?.type === "add" && <AddM close={() => setModal(null)} add={addItem} items={items} patterns={patterns} />}
