@@ -528,6 +528,7 @@ export default function App() {
   const [patMgr, setPatMgr] = useState(false);
   const [themeMode, setThemeMode] = useState(getStoredTheme);
   const [themeDrop, setThemeDrop] = useState(false);
+  const [userDrop, setUserDrop] = useState(false);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(!!supabase);
 
@@ -544,7 +545,7 @@ export default function App() {
       setSession(s);
       setAuthLoading(false);
       // 清理 OAuth 回调留下的 URL hash
-      if (window.location.hash && window.location.hash.includes("access_token")) {
+      if (window.location.hash) {
         window.history.replaceState(null, "", window.location.pathname);
       }
     });
@@ -703,9 +704,21 @@ export default function App() {
               <button className="btn btn-soft btn-sm" onClick={() => setPatMgr(true)} title="管理算法模式"><Settings size={14} /></button>
               <button className="btn btn-pri" onClick={() => setModal({ type: "add" })}><Plus size={15} /><span className="hx">添加题目</span></button>
               {supabase && (session ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4, paddingLeft: 10, borderLeft: "1px solid var(--bd)" }}>
-                  {session.user.user_metadata?.avatar_url && <img src={session.user.user_metadata.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: "50%" }} />}
-                  <button className="btn btn-soft btn-sm" onClick={signOut} title="退出登录"><LogOut size={14} /></button>
+                <div style={{ position: "relative", marginLeft: 4, paddingLeft: 10, borderLeft: "1px solid var(--bd)" }}>
+                  <button onClick={() => setUserDrop(v => !v)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}>
+                    <img src={session.user.user_metadata?.avatar_url || ""} alt="" style={{ width: 26, height: 26, borderRadius: "50%", border: "2px solid var(--bd)" }} />
+                  </button>
+                  {userDrop && <>
+                    <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setUserDrop(false)} />
+                    <div className="sort-drop fu" style={{ right: 0, left: "auto", minWidth: 160, padding: 6 }}>
+                      <div style={{ padding: "8px 10px", fontSize: 12, color: "var(--txm)", borderBottom: "1px solid var(--bd)", marginBottom: 4 }}>
+                        {session.user.user_metadata?.user_name || session.user.email}
+                      </div>
+                      <button className="sort-drop-item" onClick={() => { signOut(); setUserDrop(false); }}>
+                        <LogOut size={13} /> 退出登录
+                      </button>
+                    </div>
+                  </>}
                 </div>
               ) : (
                 <button className="btn btn-soft btn-sm" onClick={signInWithGitHub} title="GitHub 登录"><LogIn size={14} /></button>
