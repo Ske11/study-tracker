@@ -67,9 +67,15 @@ async function supabaseLoad() {
   return problems.map((row) => fromDbRow(row, historyMap[row.id] || []));
 }
 
+let cancelled = false;
+
 async function supabaseSave(items, userId) {
+  cancelled = false;
+
+  // 1. 查现有 ID，删除已移除的题目
   const { data: existing, error: fetchErr } = await supabase.from("problems").select("id");
   if (fetchErr) throw fetchErr;
+  if (cancelled) return;
 
   const existingIds = new Set((existing || []).map((r) => r.id));
   const currentIds = new Set(items.map((i) => i.id));
@@ -77,23 +83,31 @@ async function supabaseSave(items, userId) {
   const toDelete = [...existingIds].filter((id) => !currentIds.has(id));
   if (toDelete.length > 0) {
     throwIfError(await supabase.from("problems").delete().in("id", toDelete));
+    if (cancelled) return;
   }
 
+  // 2. 批量 upsert 所有 problems
+  const rows = items.map((item) => toDbRow(item, userId));
+  for (let i = 0; i < rows.length; i += 100) {
+    throwIfError(await supabase.from("problems").upsert(rows.slice(i, i + 100), { onConflict: "id" }));
+    if (cancelled) return;
+  }
+
+  // 3. 批量重建 review_history：一次删除 + 一次插入
+  throwIfError(await supabase.from("review_history").delete().eq("user_id", userId));
+  if (cancelled) return;
+
+  const allHistory = [];
   for (const item of items) {
-    const row = toDbRow(item, userId);
-    throwIfError(await supabase.from("problems").upsert(row, { onConflict: "id" }));
-
-    throwIfError(await supabase.from("review_history").delete().eq("problem_id", item.id));
-
     if (item.history && item.history.length > 0) {
-      const historyRows = item.history.map((h) => ({
-        problem_id: item.id,
-        date: h.date,
-        confidence: h.confidence,
-        user_id: userId,
-      }));
-      throwIfError(await supabase.from("review_history").insert(historyRows));
+      for (const h of item.history) {
+        allHistory.push({ problem_id: item.id, date: h.date, confidence: h.confidence, user_id: userId });
+      }
     }
+  }
+  for (let i = 0; i < allHistory.length; i += 500) {
+    throwIfError(await supabase.from("review_history").insert(allHistory.slice(i, i + 500)));
+    if (cancelled) return;
   }
 }
 
@@ -131,6 +145,12 @@ export const db = {
     return localLoad();
   },
 
+  cancelSave() {
+    cancelled = true;
+    clearTimeout(debounceTimer);
+    pendingResolvers.splice(0).forEach((r) => r.resolve());
+  },
+
   save(data, userId) {
     localSave(data);
 
@@ -145,6 +165,7 @@ export const db = {
           .then(() => supabaseSave(data, userId))
           .then(() => resolvers.forEach((r) => r.resolve()))
           .catch((e) => {
+            if (cancelled) { resolvers.forEach((r) => r.resolve()); return; }
             console.error("[db] Supabase save failed:", e);
             resolvers.forEach((r) => r.reject(e));
           });

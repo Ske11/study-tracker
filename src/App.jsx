@@ -546,7 +546,7 @@ export default function App() {
       setAuthLoading(false);
     });
     const { data: { subscription } } = onAuthStateChange((s) => {
-      if (!s && session) { setLoaded(false); setItems([]); }
+      if (!s && session) { db.cancelSave(); setLoaded(false); setItems([]); }
       setSession(s);
       setAuthLoading(false);
       // 清理 OAuth 回调留下的 URL hash（如 /#）
