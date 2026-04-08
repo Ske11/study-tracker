@@ -560,7 +560,7 @@ export default function App() {
   // Load data
   useEffect(() => {
     if (authLoading) return;
-    if (supabase && !session) { setItems([]); setLoaded(true); return; }
+    if (supabase && !session) { setLoaded(false); setItems([]); return; }
     db.load().then(d => {
       const migrated = d.map(p => {
         const actualReviews = p.history.filter((h, i) => !(i === 0 && h.date === p.addedAt)).length;
@@ -655,7 +655,7 @@ export default function App() {
     setShowImport(false);
   }
 
-  if (!loaded) return (<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}><style>{CSS}</style><p style={{ color: "var(--txm)" }}>加载中…</p></div>);
+  if (!loaded && !(supabase && !authLoading && !session)) return (<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}><style>{CSS}</style><p style={{ color: "var(--txm)" }}>加载中…</p></div>);
 
   const TABS = [
     { id: "dashboard", label: "总览", Icon: LayoutGrid },
@@ -720,9 +720,7 @@ export default function App() {
                     </div>
                   </>}
                 </div>
-              ) : (
-                <button className="btn btn-soft btn-sm" onClick={signInWithGitHub} title="GitHub 登录"><LogIn size={14} /></button>
-              ))}
+              ) : null)}
             </div>
           </div>
           <div className="tabs" style={{ overflowX: "auto" }}>
