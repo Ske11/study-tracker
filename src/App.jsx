@@ -724,7 +724,7 @@ function DashboardView({ items, due, mast, patStats, setView, patterns }) {
     <div className="sg">
       {[
         { label: "总题数", val: items.length, color: "var(--ac)", Icon: Target, hp: null, hs: 270, hn: null },
-        { label: "待复习", val: due.length, color: due.length > 0 ? "var(--orange)" : "var(--green)", Icon: Clock, hp: null, hs: 140, hn: null },
+        { label: "待复习", val: due.length, color: due.length > 0 ? "var(--orange)" : "var(--green)", Icon: Clock, hp: null, hs: 45, hn: null },
         { label: "已掌握", val: mast, color: "var(--cyan)", Icon: Trophy, hp: null, hs: 185, hn: null },
         { label: "掌握率", val: items.length > 0 ? <>{Math.round(mast / items.length * 100)}<span style={{ fontSize: "0.65em" }}>%</span></> : "—", color: "var(--pink)", Icon: Percent, hp: null, hs: 330, hn: null },
       ].map((s, i) => (
