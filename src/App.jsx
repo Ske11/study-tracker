@@ -1010,7 +1010,6 @@ function GraphView({ items, patterns }) {
           return da - db2;
         });
         const combinedPats = Object.keys(combinedMap[pid] || {}).sort((a, b) => (combinedMap[pid][b] || 0) - (combinedMap[pid][a] || 0));
-        const altPats = Object.keys(altMap[pid] || {}).sort((a, b) => (altMap[pid][b] || 0) - (altMap[pid][a] || 0));
         return (
           <div key={pid} className="card" style={{ padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -1043,6 +1042,12 @@ function GraphView({ items, patterns }) {
                     }}>
                       {item.number && <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ac)", fontWeight: 600, minWidth: 32 }}>#{item.number}</span>}
                       <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{item.title || "无标题"}</span>
+                      {(item.altPattern || []).filter(id => validIds.has(id)).map(aid => {
+                        const ap = patterns.find(x => x.id === aid);
+                        if (!ap) return null;
+                        const AI = getPatIcon(ap);
+                        return <span key={aid} style={{ fontSize: 10, color: ap.color, opacity: 0.65, display: "inline-flex", alignItems: "center", gap: 2 }}><AI size={9} />{ap.label}</span>;
+                      })}
                       <span style={{ fontSize: 11, color: diff?.color }}>{diff?.label}</span>
                       <span style={{ fontSize: 13 }}>{conf?.emoji}</span>
                     </div>
@@ -1050,28 +1055,16 @@ function GraphView({ items, patterns }) {
                 );
               })}
             </div>
-            {(combinedPats.length > 0 || altPats.length > 0) && (
+            {combinedPats.length > 0 && (
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--bd)" }}>
-                {combinedPats.length > 0 && (<>
-                  <span style={{ fontSize: 11, color: "var(--txm)", marginRight: 6 }}>组合使用：</span>
-                  {combinedPats.map(r => {
-                    const rp = patterns.find(x => x.id === r);
-                    if (!rp) return null;
-                    const RI = getPatIcon(rp);
-                    const cnt = combinedMap[pid][r];
-                    return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4 }}><RI size={10} /> {rp.label}{cnt > 1 ? ` (${cnt}题)` : ""}</span>;
-                  })}
-                </>)}
-                {altPats.length > 0 && (<div style={combinedPats.length > 0 ? { marginTop: 8 } : {}}>
-                  <span style={{ fontSize: 11, color: "var(--txm)", marginRight: 6 }}>替代解法：</span>
-                  {altPats.map(r => {
-                    const rp = patterns.find(x => x.id === r);
-                    if (!rp) return null;
-                    const RI = getPatIcon(rp);
-                    const cnt = altMap[pid][r];
-                    return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4, opacity: 0.75 }}><RI size={10} /> {rp.label}{cnt > 1 ? ` (${cnt}题)` : ""}</span>;
-                  })}
-                </div>)}
+                <span style={{ fontSize: 11, color: "var(--txm)", marginRight: 6 }}>组合使用：</span>
+                {combinedPats.map(r => {
+                  const rp = patterns.find(x => x.id === r);
+                  if (!rp) return null;
+                  const RI = getPatIcon(rp);
+                  const cnt = combinedMap[pid][r];
+                  return <span key={r} className="tag" style={{ color: rp.color, borderColor: rp.color + "33", marginRight: 4 }}><RI size={10} /> {rp.label}{cnt > 1 ? ` (${cnt}题)` : ""}</span>;
+                })}
               </div>
             )}
           </div>
