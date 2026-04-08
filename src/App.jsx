@@ -544,15 +544,15 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setAuthLoading(false);
-      // 清理 OAuth 回调留下的 URL hash
-      if (window.location.hash) {
-        window.history.replaceState(null, "", window.location.pathname);
-      }
     });
     const { data: { subscription } } = onAuthStateChange((s) => {
       if (!s && session) { setLoaded(false); setItems([]); }
       setSession(s);
       setAuthLoading(false);
+      // 清理 OAuth 回调留下的 URL hash（如 /#）
+      if (window.location.hash !== "") {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
