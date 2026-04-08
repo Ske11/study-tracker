@@ -543,6 +543,10 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setAuthLoading(false);
+      // 清理 OAuth 回调留下的 URL hash
+      if (window.location.hash && window.location.hash.includes("access_token")) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
     });
     const { data: { subscription } } = onAuthStateChange((s) => {
       if (!s && session) { setLoaded(false); setItems([]); }
@@ -677,15 +681,6 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {supabase && (session ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {session.user.user_metadata?.avatar_url && <img src={session.user.user_metadata.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: "50%" }} />}
-                  <span style={{ fontSize: 11, color: "var(--txm)", maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.user.user_metadata?.user_name || session.user.email}</span>
-                  <button className="btn btn-soft btn-sm" onClick={signOut} title="退出登录"><LogOut size={14} /></button>
-                </div>
-              ) : (
-                <button className="btn btn-soft btn-sm" onClick={signInWithGitHub} title="GitHub 登录"><LogIn size={14} /></button>
-              ))}
               <div style={{ position: "relative" }}>
                 <button className="btn btn-soft btn-sm" onClick={() => setThemeDrop(v => !v)} title="主题设置">
                   {themeMode === "dark" ? <Moon size={14} /> : themeMode === "light" ? <Sun size={14} /> : <Monitor size={14} />}
@@ -707,6 +702,14 @@ export default function App() {
               <button className="btn btn-soft btn-sm" onClick={() => setShowImport(true)} title="导入数据"><Upload size={14} /></button>
               <button className="btn btn-soft btn-sm" onClick={() => setPatMgr(true)} title="管理算法模式"><Settings size={14} /></button>
               <button className="btn btn-pri" onClick={() => setModal({ type: "add" })}><Plus size={15} /><span className="hx">添加题目</span></button>
+              {supabase && (session ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4, paddingLeft: 10, borderLeft: "1px solid var(--bd)" }}>
+                  {session.user.user_metadata?.avatar_url && <img src={session.user.user_metadata.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: "50%" }} />}
+                  <button className="btn btn-soft btn-sm" onClick={signOut} title="退出登录"><LogOut size={14} /></button>
+                </div>
+              ) : (
+                <button className="btn btn-soft btn-sm" onClick={signInWithGitHub} title="GitHub 登录"><LogIn size={14} /></button>
+              ))}
             </div>
           </div>
           <div className="tabs" style={{ overflowX: "auto" }}>
