@@ -563,7 +563,7 @@ export default function App() {
     if (supabase && !session) { setLoaded(false); setItems([]); return; }
     db.load().then(d => {
       const migrated = d.map(p => {
-        const actualReviews = p.history.filter((h, i) => !(i === 0 && h.date === p.addedAt)).length;
+        const actualReviews = p.history.filter((_, i) => i > 0).length;
         return p.reviewCount !== actualReviews ? { ...p, reviewCount: actualReviews } : p;
       });
       setItems(migrated);
@@ -1155,7 +1155,7 @@ function ReportView({ items, patterns }) {
   const prevWeekReviews = [];
   items.forEach(item => {
     item.history.forEach((h, idx) => {
-      if (idx === 0 && h.date === item.addedAt) return; // 跳过首次录入
+      if (idx === 0) return; // 首条永远是添加记录，跳过
       if (h.date >= weekStartISO) thisWeekReviews.push({ ...h, item });
       else if (h.date >= prevWeekStartISO && h.date < weekStartISO) prevWeekReviews.push({ ...h, item });
     });
