@@ -129,6 +129,23 @@ let saveQueue = Promise.resolve();
 let debounceTimer = null;
 let pendingResolvers = [];
 
+async function supabaseLoadSettings(userId) {
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("patterns")
+    .eq("user_id", userId)
+    .single();
+  if (error && error.code !== "PGRST116") throw error; // PGRST116 = no rows
+  return data?.patterns || null;
+}
+
+async function supabaseSaveSettings(userId, patterns) {
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert({ user_id: userId, patterns, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+  if (error) throw error;
+}
+
 export const db = {
   async load() {
     if (supabase) {
@@ -143,6 +160,27 @@ export const db = {
     }
     console.log("[db] No Supabase config, using localStorage");
     return localLoad();
+  },
+
+  async loadSettings(userId) {
+    if (supabase && userId) {
+      try {
+        return await supabaseLoadSettings(userId);
+      } catch (e) {
+        console.error("[db] Load settings failed:", e);
+      }
+    }
+    return null;
+  },
+
+  async saveSettings(userId, patterns) {
+    if (supabase && userId) {
+      try {
+        await supabaseSaveSettings(userId, patterns);
+      } catch (e) {
+        console.error("[db] Save settings failed:", e);
+      }
+    }
   },
 
   cancelSave() {

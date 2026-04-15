@@ -52,3 +52,15 @@ create policy "select own" on review_history for select using (auth.uid() = user
 create policy "insert own" on review_history for insert with check (auth.uid() = user_id);
 create policy "update own" on review_history for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "delete own" on review_history for delete using (auth.uid() = user_id);
+
+-- 用户设置表
+create table if not exists user_settings (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  patterns jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
+alter table user_settings enable row level security;
+create policy "select own" on user_settings for select using (auth.uid() = user_id);
+create policy "insert own" on user_settings for insert with check (auth.uid() = user_id);
+create policy "update own" on user_settings for update using (auth.uid() = user_id) with check (auth.uid() = user_id);

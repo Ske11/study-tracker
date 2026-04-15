@@ -59,6 +59,12 @@ function loadCustomPatterns() {
 function saveCustomPatterns(pats) {
   try { localStorage.setItem("lc-patterns-v1", JSON.stringify(pats)); } catch {}
 }
+// 确保"其他"永远在最后
+function ensureOtherLast(pats) {
+  const other = pats.find(p => p.id === "other");
+  if (!other) return pats;
+  return [...pats.filter(p => p.id !== "other"), other];
+}
 
 const DIFFICULTY = [
   { id: "easy", label: "简单", color: "#22A97A" },
@@ -524,7 +530,10 @@ export default function App() {
   const [sortBy, setSortBy] = useState("nextReview");
   const [toasts, setToasts] = useState([]);
   const [showImport, setShowImport] = useState(false);
-  const [patterns, setPatterns] = useState(() => loadCustomPatterns() || DEFAULT_PATTERNS);
+  const [patterns, setRawPatterns] = useState(() => ensureOtherLast(loadCustomPatterns() || DEFAULT_PATTERNS));
+  const setPatterns = useCallback((v) => {
+    setRawPatterns(prev => ensureOtherLast(typeof v === "function" ? v(prev) : v));
+  }, []);
   const [patMgr, setPatMgr] = useState(false);
   const [themeMode, setThemeMode] = useState(getStoredTheme);
   const [themeDrop, setThemeDrop] = useState(false);
@@ -561,12 +570,17 @@ export default function App() {
   useEffect(() => {
     if (authLoading) return;
     if (supabase && !session) { setLoaded(false); setItems([]); return; }
-    db.load().then(d => {
+    const userId = session?.user?.id;
+    Promise.all([
+      db.load(),
+      db.loadSettings(userId),
+    ]).then(([d, cloudPatterns]) => {
       const migrated = d.map(p => {
         const actualReviews = p.history.filter((_, i) => i > 0).length;
         return p.reviewCount !== actualReviews ? { ...p, reviewCount: actualReviews } : p;
       });
       setItems(migrated);
+      if (cloudPatterns && cloudPatterns.length > 0) setPatterns(cloudPatterns);
       setLoaded(true);
     }).catch(() => { toast("数据加载失败，使用本地缓存", false); setLoaded(true); });
   }, [session, authLoading]);
@@ -577,7 +591,11 @@ export default function App() {
     const userId = session?.user?.id;
     db.save(items, userId).catch(() => toast("云端保存失败，已保存到本地", false));
   }, [items, loaded]);
-  useEffect(() => { saveCustomPatterns(patterns); }, [patterns]);
+  useEffect(() => {
+    saveCustomPatterns(patterns);
+    const userId = session?.user?.id;
+    if (loaded && userId) db.saveSettings(userId, patterns);
+  }, [patterns]);
 
   useEffect(() => {
     applyTheme(themeMode);
